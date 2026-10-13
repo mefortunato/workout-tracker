@@ -1,0 +1,21 @@
+.git
+.gitignore
+.env
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.log
+
+# Frontend build cache & dependencies
+frontend/node_modules
+frontend/.svelte-kit
+frontend/build
+.npm
+
+# Backend virtual environments
+backend/.venv
+backend/tests/__pycache__
+backend/.pytest_cache
+backend/app/static
