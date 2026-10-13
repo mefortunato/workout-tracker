@@ -29,55 +29,7 @@
     } finally {
       isLoading = false;
     }
-
-    // Initialize Google Identity Services if client ID is set
-    initGoogleButton();
   });
-
-  function initGoogleButton() {
-    if (typeof window !== 'undefined' && (window as any).google && authConfig?.google_client_id) {
-      try {
-        (window as any).google.accounts.id.initialize({
-          client_id: authConfig.google_client_id,
-          callback: handleGoogleCredentialResponse,
-        });
-
-        const btnContainer = document.getElementById('google-btn-container');
-        if (btnContainer) {
-          (window as any).google.accounts.id.renderButton(btnContainer, {
-            theme: 'filled_black',
-            size: 'large',
-            text: 'continue_with',
-            shape: 'rectangular',
-            width: 280
-          });
-        }
-      } catch (err) {
-        console.warn('Google Identity initialization error:', err);
-      }
-    }
-  }
-
-  $effect(() => {
-    if (authConfig?.google_client_id) {
-      setTimeout(initGoogleButton, 150);
-    }
-  });
-
-  async function handleGoogleCredentialResponse(response: any) {
-    if (!response.credential) return;
-    isLoggingIn = true;
-    try {
-      const data = await api.verifyGoogleToken(response.credential);
-      userStore.set(data.user);
-      addToast('Welcome Back! 🔥', `Signed in as ${data.user.name}.`, 'success');
-      goto('/');
-    } catch (err: any) {
-      addToast('Authentication Failed', err.message || 'Could not verify Google ID token', 'error');
-    } finally {
-      isLoggingIn = false;
-    }
-  }
 
   async function handleEmailAuth(e: Event) {
     e.preventDefault();
@@ -251,9 +203,6 @@
         <!-- Google Sign In Section -->
         <div class="google-auth-section">
           {#if authConfig?.google_auth_enabled}
-            <!-- One-tap / GIS container -->
-            <div id="google-btn-container" class="google-btn-box"></div>
-
             <!-- Standard OAuth redirect link -->
             <a href="/api/auth/google/login" class="btn btn-secondary google-direct-btn">
               <svg width="18" height="18" viewBox="0 0 24 24">
@@ -477,12 +426,6 @@
     flex-direction: column;
     align-items: center;
     gap: 0.75rem;
-  }
-
-  .google-btn-box {
-    min-height: 44px;
-    display: flex;
-    justify-content: center;
   }
 
   .google-direct-btn {
