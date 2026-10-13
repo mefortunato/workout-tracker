@@ -105,15 +105,24 @@ To run the entire application with Docker Compose:
 
 ---
 
-## 💻 Local Development Setup (Without Docker)
+## 💻 Local Development Setup
 
-### Prerequisites
+### Quick Start (One Command)
+Run both backend and frontend development servers with live reload connected to local MongoDB:
+```bash
+./scripts/dev.sh
+```
+*This automatically starts the local MongoDB container (port 27018), overrides `MONGODB_URI` to use local MongoDB instead of production Atlas, and launches FastAPI (`http://127.0.0.1:8000`) and the Vite dev server (`http://localhost:5173`).*
+
+---
+
+### Manual Setup (Step-by-Step)
 - Node.js 22+ & npm
 - Python 3.11+
 - Astral `uv` (`curl -LsSf https://astral.sh/uv/install.sh | sh`)
-- Local MongoDB running on `localhost:27017`
+- Local MongoDB running on `localhost:27018`
 
-### 1. Backend Setup
+#### 1. Backend Setup
 ```bash
 cd backend
 
