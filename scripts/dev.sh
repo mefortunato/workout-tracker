@@ -12,24 +12,24 @@ ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 cd "${ROOT_DIR}"
 
-# 1. Read MONGO_PORT from .env if present (defaults to 27018)
-LOCAL_MONGO_PORT=27018
-if [ -f .env ]; then
-  PORT_FROM_ENV=$(grep -E '^MONGO_PORT=' .env | cut -d '=' -f2 | tr -d ' "' || true)
-  if [ -n "$PORT_FROM_ENV" ]; then
-    LOCAL_MONGO_PORT="$PORT_FROM_ENV"
-  fi
+# 1. Load variables from root .env if present
+if [ -f "${ROOT_DIR}/.env" ]; then
+  echo "✓ Loading configuration from .env..."
+  set -a
+  source <(grep -v '^#' "${ROOT_DIR}/.env" | grep -v '^$')
+  set +a
 fi
 
-# 2. Ensure local MongoDB Docker container is running
-echo "📦 Ensuring local MongoDB container is running on port ${LOCAL_MONGO_PORT}..."
-docker compose up -d mongodb
-
-# 3. Export local MongoDB URI to override production Atlas URI in .env
+# 2. Local overrides for development
+LOCAL_MONGO_PORT="${MONGO_PORT:-27018}"
 export MONGODB_URI="mongodb://127.0.0.1:${LOCAL_MONGO_PORT}"
 export DATABASE_NAME="${DATABASE_NAME:-workout_tracker}"
 export FRONTEND_URL="http://localhost:5173"
 export ALLOW_DEV_LOGIN="true"
+
+# 3. Ensure local MongoDB Docker container is running
+echo "📦 Ensuring local MongoDB container is running on port ${LOCAL_MONGO_PORT}..."
+docker compose up -d mongodb
 
 echo "⚡ Dev Database: ${MONGODB_URI} (${DATABASE_NAME})"
 
