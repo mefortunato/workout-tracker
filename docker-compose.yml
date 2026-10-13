@@ -1,0 +1,38 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: workout-tracker-app
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8080}:8000"
+    environment:
+      - MONGODB_URI=${MONGODB_URI:-mongodb://mongodb:27017}
+      - DATABASE_NAME=${DATABASE_NAME:-workout_tracker}
+      - JWT_SECRET=${JWT_SECRET:-super-secret-workout-tracker-token-key-change-in-prod-2026}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:8080}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      - ALLOW_DEV_LOGIN=true
+    depends_on:
+      mongodb:
+        condition: service_healthy
+
+  mongodb:
+    image: mongo:7.0
+    container_name: workout-tracker-mongodb
+    restart: unless-stopped
+    ports:
+      - "${MONGO_PORT:-27018}:27017"
+    volumes:
+      - workout_mongo_data:/data/db
+    healthcheck:
+      test: ["CMD-SHELL", "echo 'db.runCommand(\"ping\").ok' | mongosh localhost:27017/test --quiet"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+volumes:
+  workout_mongo_data:
