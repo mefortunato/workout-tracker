@@ -34,23 +34,25 @@
     </a>
 
     <!-- Desktop Navigation Links -->
-    <div class="nav-links">
-      <a href="/" class="nav-link" class:active={page.url.pathname === '/'}>
-        <span class="icon">📊</span> Dashboard
-      </a>
-      <a href="/workouts" class="nav-link" class:active={page.url.pathname.startsWith('/workouts')}>
-        <span class="icon">🏋️</span> Workouts
-      </a>
-      <a href="/exercises" class="nav-link" class:active={page.url.pathname.startsWith('/exercises')}>
-        <span class="icon">📖</span> Exercises
-      </a>
-      <a href="/goals" class="nav-link" class:active={page.url.pathname.startsWith('/goals')}>
-        <span class="icon">🎯</span> Goals
-      </a>
-      <a href="/stats" class="nav-link" class:active={page.url.pathname.startsWith('/stats')}>
-        <span class="icon">📈</span> Analytics
-      </a>
-    </div>
+    {#if $userStore}
+      <div class="nav-links">
+        <a href="/" class="nav-link" class:active={page.url.pathname === '/'}>
+          <span class="icon">📊</span> Dashboard
+        </a>
+        <a href="/workouts" class="nav-link" class:active={page.url.pathname.startsWith('/workouts')}>
+          <span class="icon">🏋️</span> Workouts
+        </a>
+        <a href="/exercises" class="nav-link" class:active={page.url.pathname.startsWith('/exercises')}>
+          <span class="icon">📖</span> Exercises
+        </a>
+        <a href="/goals" class="nav-link" class:active={page.url.pathname.startsWith('/goals')}>
+          <span class="icon">🎯</span> Goals
+        </a>
+        <a href="/stats" class="nav-link" class:active={page.url.pathname.startsWith('/stats')}>
+          <span class="icon">📈</span> Analytics
+        </a>
+      </div>
+    {/if}
 
     <!-- Auth / Profile Section -->
     <div class="nav-auth">
@@ -82,24 +84,26 @@
         </a>
       {/if}
 
-      <!-- Mobile Hamburger Button -->
-      <button class="mobile-toggle" onclick={toggleMobileMenu} aria-label="Toggle Navigation">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          {#if isMobileMenuOpen}
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
-          {:else}
-            <line x1="3" y1="12" x2="21" y2="12"></line>
-            <line x1="3" y1="6" x2="21" y2="6"></line>
-            <line x1="3" y1="18" x2="21" y2="18"></line>
-          {/if}
-        </svg>
-      </button>
+      <!-- Mobile Hamburger Button (only when logged in) -->
+      {#if $userStore}
+        <button class="mobile-toggle" onclick={toggleMobileMenu} aria-label="Toggle Navigation">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            {#if isMobileMenuOpen}
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            {:else}
+              <line x1="3" y1="12" x2="21" y2="12"></line>
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <line x1="3" y1="18" x2="21" y2="18"></line>
+            {/if}
+          </svg>
+        </button>
+      {/if}
     </div>
   </div>
 
   <!-- Mobile Dropdown Menu -->
-  {#if isMobileMenuOpen}
+  {#if isMobileMenuOpen && $userStore}
     <div class="mobile-menu animate-pop-in">
       <a href="/" class="mobile-link" onclick={() => isMobileMenuOpen = false}>
         <span>📊</span> Dashboard
@@ -116,15 +120,9 @@
       <a href="/stats" class="mobile-link" onclick={() => isMobileMenuOpen = false}>
         <span>📈</span> Analytics
       </a>
-      {#if $userStore}
-        <button class="mobile-link logout-link" onclick={handleLogout}>
-          <span>🚪</span> Sign Out ({$userStore.name})
-        </button>
-      {:else}
-        <a href="/login" class="mobile-link login-link" onclick={() => isMobileMenuOpen = false}>
-          <span>⚡</span> Sign In
-        </a>
-      {/if}
+      <button class="mobile-link logout-link" onclick={handleLogout}>
+        <span>🚪</span> Sign Out ({$userStore.name})
+      </button>
     </div>
   {/if}
 </nav>

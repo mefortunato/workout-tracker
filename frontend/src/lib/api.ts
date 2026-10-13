@@ -47,6 +47,12 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   });
 
   if (!res.ok) {
+    if (res.status === 401 && endpoint !== '/auth/me' && endpoint !== '/auth/config' && endpoint !== '/auth/login') {
+      setToken(null);
+      if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
+    }
     let errorDetail = res.statusText;
     try {
       const errJson = await res.json();
