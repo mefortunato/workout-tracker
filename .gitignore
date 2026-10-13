@@ -37,8 +37,14 @@ frontend/build/
 # Static output built for backend (can be rebuilt anytime)
 backend/app/static/
 
-# Environment
+# Environment & Secrets
 .env
+.env.*
+!.env.example
+*.key
+*.pem
+*client_secret*.json
+*credentials*.json
 
 # IDE & OS
 .vscode/
