@@ -273,14 +273,14 @@ This will automatically:
 ---
 
 ### Final Step: Update OAuth Redirects
-Once deployed and you have your live `https://...run.app` URL:
-1. Update `FRONTEND_URL` on Cloud Run to your new URL:
-   ```bash
-   gcloud run services update workout-tracker --region us-central1 --update-env-vars FRONTEND_URL=https://YOUR_SERVICE_URL.run.app
-   ```
-2. In [Google Cloud Console Credentials](https://console.cloud.google.com/apis/credentials):
-   - Under **Authorized JavaScript origins**, add:
-     - `https://YOUR_SERVICE_URL.run.app`
-   - Under **Authorized redirect URIs**, add:
-     - `https://YOUR_SERVICE_URL.run.app/api/auth/google/callback`
+The automated deployment script (`./scripts/deploy-gcp.sh`) automatically configures `FRONTEND_URL` on Cloud Run using the values specified in your `.env` or environment variables (e.g. `FRONTEND_URL` or `CUSTOM_DOMAIN`).
+
+To ensure Google Sign-In operates smoothly, in [Google Cloud Console Credentials](https://console.cloud.google.com/apis/credentials):
+1. Select your **OAuth 2.0 Client ID** (Web application)
+2. Under **Authorized JavaScript origins**, add:
+   - `https://YOUR_CUSTOM_DOMAIN.com` (if using a custom domain)
+   - `https://YOUR_SERVICE_URL.run.app`
+3. Under **Authorized redirect URIs**, add:
+   - `https://YOUR_CUSTOM_DOMAIN.com/api/auth/google/callback` (if using a custom domain)
+   - `https://YOUR_SERVICE_URL.run.app/api/auth/google/callback`
 
