@@ -174,3 +174,96 @@ async def get_or_create_user(user_info: Dict[str, Any]) -> Dict[str, Any]:
     ])
     
     return new_user
+
+
+def hash_password(password: str) -> str:
+    import hashlib
+    import secrets
+    salt = secrets.token_hex(16)
+    key = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt.encode("utf-8"), 100000)
+    return f"{salt}:{key.hex()}"
+
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    import hashlib
+    import secrets
+    try:
+        if not hashed_password or ":" not in hashed_password:
+            return False
+        salt, key_hex = hashed_password.split(":", 1)
+        key = hashlib.pbkdf2_hmac("sha256", plain_password.encode("utf-8"), salt.encode("utf-8"), 100000)
+        return secrets.compare_digest(key.hex(), key_hex)
+    except Exception:
+        return False
+
+
+async def register_email_user(name: str, email: str, password: str) -> Dict[str, Any]:
+    """Registers a new user with email and password."""
+    db = get_db()
+    email_clean = email.strip().lower()
+    existing = await db.users.find_one({"email": email_clean})
+    if existing:
+        raise ValueError("An account with this email already exists.")
+
+    hashed = hash_password(password)
+    new_user = {
+        "email": email_clean,
+        "name": name.strip(),
+        "hashed_password": hashed,
+        "picture": "",
+        "created_at": utc_now(),
+        "last_login": utc_now(),
+        "preferences": {
+            "weight_unit": "kg",
+            "theme": "dark",
+            "daily_pushup_target": 100,
+            "daily_situp_target": 100
+        }
+    }
+    result = await db.users.insert_one(new_user)
+    new_user["_id"] = str(result.inserted_id)
+
+    # Initialize starter goals
+    await db.goals.insert_many([
+        {
+            "user_id": new_user["_id"],
+            "title": "Daily 100 Push-ups",
+            "exercise_name": "Push-ups",
+            "period": "daily",
+            "target_value": 100,
+            "unit": "reps",
+            "is_active": True,
+            "created_at": utc_now()
+        },
+        {
+            "user_id": new_user["_id"],
+            "title": "Daily 50 Sit-ups",
+            "exercise_name": "Sit-ups",
+            "period": "daily",
+            "target_value": 50,
+            "unit": "reps",
+            "is_active": True,
+            "created_at": utc_now()
+        }
+    ])
+    return new_user
+
+
+async def authenticate_email_user(email: str, password: str) -> Dict[str, Any]:
+    """Authenticates an existing user via email and password."""
+    db = get_db()
+    email_clean = email.strip().lower()
+    user = await db.users.find_one({"email": email_clean})
+    if not user:
+        raise ValueError("Invalid email or password.")
+
+    hashed = user.get("hashed_password")
+    if not hashed:
+        raise ValueError("This account was created with Google Sign-In. Please sign in with Google.")
+
+    if not verify_password(password, hashed):
+        raise ValueError("Invalid email or password.")
+
+    await db.users.update_one({"_id": user["_id"]}, {"$set": {"last_login": utc_now()}})
+    user["_id"] = str(user["_id"])
+    return user

@@ -8,6 +8,13 @@
   let isLoading = $state(true);
   let isLoggingIn = $state(false);
 
+  // Email / Password Form State
+  let authMode = $state<'login' | 'register'>('login');
+  let email = $state('');
+  let password = $state('');
+  let name = $state('');
+  let formError = $state('');
+
   onMount(async () => {
     // If already logged in, redirect to dashboard
     if ($userStore) {
@@ -72,6 +79,46 @@
     }
   }
 
+  async function handleEmailAuth(e: Event) {
+    e.preventDefault();
+    formError = '';
+
+    const cleanEmail = email.trim();
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      formError = 'Please enter a valid email address.';
+      return;
+    }
+
+    if (!password || password.length < 6) {
+      formError = 'Password must be at least 6 characters long.';
+      return;
+    }
+
+    if (authMode === 'register' && !name.trim()) {
+      formError = 'Please enter your full name.';
+      return;
+    }
+
+    isLoggingIn = true;
+    try {
+      if (authMode === 'register') {
+        const data = await api.registerWithEmail(cleanEmail, password, name.trim());
+        userStore.set(data.user);
+        addToast('Account Created! 🚀', `Welcome to PulseFit, ${data.user.name}!`, 'success');
+        goto('/');
+      } else {
+        const data = await api.loginWithEmail(cleanEmail, password);
+        userStore.set(data.user);
+        addToast('Welcome Back! 🔥', `Signed in as ${data.user.name}.`, 'success');
+        goto('/');
+      }
+    } catch (err: any) {
+      formError = err.message || 'Authentication failed. Please check your credentials.';
+    } finally {
+      isLoggingIn = false;
+    }
+  }
+
   async function handleDemoLogin() {
     isLoggingIn = true;
     try {
@@ -89,6 +136,7 @@
 
 <div class="login-page-wrapper">
   <div class="login-card glass-card animate-pop-in">
+    <!-- Brand Header -->
     <div class="login-brand">
       <div class="logo-icon">⚡</div>
       <h1 class="brand-title">PULSE<span class="highlight">FIT</span></h1>
@@ -102,9 +150,109 @@
           <p>Connecting to authentication servers...</p>
         </div>
       {:else}
+        <!-- Auth Tabs: Sign In / Create Account -->
+        <div class="auth-tabs">
+          <button
+            type="button"
+            class="tab-btn"
+            class:active={authMode === 'login'}
+            onclick={() => { authMode = 'login'; formError = ''; }}
+          >
+            Sign In
+          </button>
+          <button
+            type="button"
+            class="tab-btn"
+            class:active={authMode === 'register'}
+            onclick={() => { authMode = 'register'; formError = ''; }}
+          >
+            Create Account
+          </button>
+        </div>
+
+        {#if formError}
+          <div class="form-error-alert animate-pop-in">
+            <span class="error-icon">⚠️</span>
+            <span class="error-text">{formError}</span>
+          </div>
+        {/if}
+
+        <!-- Email & Password Form -->
+        <form class="email-auth-form" onsubmit={handleEmailAuth}>
+          {#if authMode === 'register'}
+            <div class="input-group">
+              <label for="name-input">Full Name</label>
+              <div class="input-field-wrapper">
+                <span class="field-icon">👤</span>
+                <input
+                  id="name-input"
+                  type="text"
+                  placeholder="e.g. Alex Hunter"
+                  bind:value={name}
+                  required
+                  autocomplete="name"
+                />
+              </div>
+            </div>
+          {/if}
+
+          <div class="input-group">
+            <label for="email-input">Email Address</label>
+            <div class="input-field-wrapper">
+              <span class="field-icon">✉️</span>
+              <input
+                id="email-input"
+                type="email"
+                placeholder="athlete@example.com"
+                bind:value={email}
+                required
+                autocomplete="email"
+              />
+            </div>
+          </div>
+
+          <div class="input-group">
+            <label for="password-input">Password</label>
+            <div class="input-field-wrapper">
+              <span class="field-icon">🔒</span>
+              <input
+                id="password-input"
+                type="password"
+                placeholder={authMode === 'register' ? 'At least 6 characters' : 'Enter your password'}
+                bind:value={password}
+                required
+                minlength="6"
+                autocomplete={authMode === 'register' ? 'new-password' : 'current-password'}
+              />
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            class="btn btn-primary btn-submit"
+            disabled={isLoggingIn}
+          >
+            {#if isLoggingIn}
+              <div class="spinner-small"></div>
+              <span>Processing...</span>
+            {:else if authMode === 'register'}
+              <span>Create Account</span>
+            {:else}
+              <span>Sign In with Email</span>
+            {/if}
+          </button>
+        </form>
+
+        <!-- Divider -->
+        <div class="divider">
+          <span>OR CONTINUE WITH</span>
+        </div>
+
         <!-- Google Sign In Section -->
         <div class="google-auth-section">
           {#if authConfig?.google_auth_enabled}
+            <!-- One-tap / GIS container -->
+            <div id="google-btn-container" class="google-btn-box"></div>
 
             <!-- Standard OAuth redirect link -->
             <a href="/api/auth/google/login" class="btn btn-secondary google-direct-btn">
@@ -117,7 +265,7 @@
               <span>Sign in with Google</span>
             </a>
           {:else}
-            <!-- Notice when Google credentials are yet to be put in .env -->
+            <!-- Notice when Google credentials are not yet configured -->
             <div class="google-setup-notice">
               <span class="notice-icon">ℹ️</span>
               <div class="notice-content">
@@ -131,25 +279,22 @@
         <!-- Demo Login Option -->
         {#if authConfig?.dev_login_enabled}
           <div class="demo-section">
-            <div class="divider">
-              <span>EXPLORE INSTANTLY</span>
-            </div>
             <button
-              class="btn btn-primary btn-demo"
+              type="button"
+              class="btn btn-secondary btn-demo"
               disabled={isLoggingIn}
               onclick={handleDemoLogin}
             >
               <span class="demo-bolt">⚡</span>
-              <span>{isLoggingIn ? 'Signing in...' : 'Sign In as Demo Athlete'}</span>
+              <span>{isLoggingIn ? 'Signing in...' : 'Try Demo Mode (Instant)'}</span>
             </button>
-            <p class="demo-hint">Explore the full workout tracking interface with pre-seeded history and streak stats!</p>
           </div>
         {/if}
       {/if}
     </div>
 
     <div class="login-footer">
-      <span>Safe & Secure • Direct OAuth2 • MongoDB Storage</span>
+      <span>Safe & Secure • Direct Email & OAuth2 • MongoDB Storage</span>
     </div>
   </div>
 </div>
@@ -166,10 +311,10 @@
   .login-card {
     width: 100%;
     max-width: 440px;
-    padding: 2.5rem 2rem;
+    padding: 2.25rem 2rem;
     display: flex;
     flex-direction: column;
-    gap: 1.75rem;
+    gap: 1.5rem;
     border: 1px solid var(--border-hover);
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.8);
     text-align: center;
@@ -216,6 +361,117 @@
     gap: 1.25rem;
   }
 
+  /* Auth Tabs */
+  .auth-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    background: rgba(15, 23, 42, 0.6);
+    padding: 4px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-subtle);
+  }
+
+  .tab-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    padding: 0.6rem 0.5rem;
+    font-size: 0.88rem;
+    font-weight: 600;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .tab-btn:hover {
+    color: var(--text-main);
+  }
+
+  .tab-btn.active {
+    background: rgba(30, 41, 59, 0.9);
+    color: var(--accent-emerald-light);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  }
+
+  /* Form error alert */
+  .form-error-alert {
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.35);
+    border-radius: var(--radius-md);
+    padding: 0.65rem 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    text-align: left;
+    font-size: 0.84rem;
+    color: #fca5a5;
+  }
+
+  /* Email Form */
+  .email-auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    text-align: left;
+  }
+
+  .input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .input-group label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .input-field-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  .field-icon {
+    position: absolute;
+    left: 0.85rem;
+    font-size: 0.95rem;
+    pointer-events: none;
+    opacity: 0.7;
+  }
+
+  .input-field-wrapper input {
+    width: 100%;
+    background: rgba(15, 23, 42, 0.7);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    padding: 0.7rem 0.85rem 0.7rem 2.4rem;
+    color: var(--text-main);
+    font-size: 0.92rem;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .input-field-wrapper input:focus {
+    outline: none;
+    border-color: var(--accent-emerald);
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+  }
+
+  .btn-submit {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    font-size: 0.95rem;
+    font-weight: 700;
+    margin-top: 0.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+
   .google-auth-section {
     display: flex;
     flex-direction: column;
@@ -231,8 +487,8 @@
 
   .google-direct-btn {
     width: 100%;
-    padding: 0.75rem 1rem;
-    font-size: 0.95rem;
+    padding: 0.7rem 1rem;
+    font-size: 0.92rem;
     gap: 0.75rem;
   }
 
@@ -240,26 +496,26 @@
     background: rgba(6, 182, 212, 0.08);
     border: 1px solid rgba(6, 182, 212, 0.25);
     border-radius: var(--radius-md);
-    padding: 0.85rem 1rem;
+    padding: 0.75rem 0.85rem;
     display: flex;
-    gap: 0.75rem;
+    gap: 0.65rem;
     text-align: left;
-    font-size: 0.82rem;
+    font-size: 0.8rem;
   }
 
   .notice-icon {
-    font-size: 1.2rem;
+    font-size: 1.1rem;
   }
 
   .notice-content strong {
     color: var(--accent-cyan-light);
     display: block;
-    margin-bottom: 0.2rem;
+    margin-bottom: 0.15rem;
   }
 
   .notice-content p {
     color: var(--text-muted);
-    line-height: 1.4;
+    line-height: 1.35;
   }
 
   .notice-content code {
@@ -274,10 +530,11 @@
     align-items: center;
     text-align: center;
     color: var(--text-dim);
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     font-weight: 700;
     letter-spacing: 0.08em;
     width: 100%;
+    margin: 0.25rem 0;
   }
 
   .divider::before, .divider::after {
@@ -296,23 +553,17 @@
   .demo-section {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 0.5rem;
   }
 
   .btn-demo {
     width: 100%;
-    padding: 0.8rem 1rem;
-    font-size: 1rem;
+    padding: 0.7rem 1rem;
+    font-size: 0.9rem;
   }
 
   .demo-bolt {
-    font-size: 1.2rem;
-  }
-
-  .demo-hint {
-    font-size: 0.78rem;
-    color: var(--text-dim);
-    line-height: 1.4;
+    font-size: 1.1rem;
   }
 
   .login-footer {
@@ -339,5 +590,15 @@
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
   }
+
+  .spinner-small {
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    border-top-color: #ffffff;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
   @keyframes spin { to { transform: rotate(360deg); } }
 </style>

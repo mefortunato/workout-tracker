@@ -170,3 +170,49 @@ async def test_static_html_and_asset_serving():
         assert resp_l.status_code == 200
         assert "html" in resp_l.headers["content-type"]
 
+
+@pytest.mark.asyncio
+async def test_email_register_and_login():
+    import uuid
+    unique_email = f"athlete_{uuid.uuid4().hex[:8]}@example.com"
+    password = "SecretPassword123!"
+    name = "Test Athlete"
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        # 1. Register
+        reg_resp = await client.post("/api/auth/register", json={
+            "name": name,
+            "email": unique_email,
+            "password": password
+        })
+        assert reg_resp.status_code == 200
+        reg_data = reg_resp.json()
+        assert "access_token" in reg_data
+        assert reg_data["user"]["email"] == unique_email
+        assert reg_data["user"]["name"] == name
+
+        # 2. Duplicate registration fails
+        dup_resp = await client.post("/api/auth/register", json={
+            "name": name,
+            "email": unique_email,
+            "password": password
+        })
+        assert dup_resp.status_code == 400
+
+        # 3. Login with correct password
+        login_resp = await client.post("/api/auth/login", json={
+            "email": unique_email,
+            "password": password
+        })
+        assert login_resp.status_code == 200
+        login_data = login_resp.json()
+        assert "access_token" in login_data
+        assert login_data["user"]["email"] == unique_email
+
+        # 4. Login with incorrect password
+        bad_login = await client.post("/api/auth/login", json={
+            "email": unique_email,
+            "password": "WrongPassword!"
+        })
+        assert bad_login.status_code == 401
+

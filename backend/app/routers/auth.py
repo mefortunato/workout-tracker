@@ -13,10 +13,18 @@ from app.services.auth_service import (
     create_access_token,
     verify_google_credential,
     exchange_google_code,
-    get_or_create_user
+    get_or_create_user,
+    register_email_user,
+    authenticate_email_user
 )
 from app.utils.auth_dep import get_current_user
-from app.models.user import UserPublic, TokenResponse, UserPreferences
+from app.models.user import (
+    UserPublic,
+    TokenResponse,
+    UserPreferences,
+    EmailRegisterRequest,
+    EmailLoginRequest
+)
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +50,56 @@ async def get_auth_config():
         "google_auth_enabled": bool(settings.GOOGLE_CLIENT_ID and settings.GOOGLE_CLIENT_SECRET),
         "dev_login_enabled": settings.ALLOW_DEV_LOGIN
     }
+
+
+@router.post("/register", response_model=TokenResponse)
+async def register_with_email(body: EmailRegisterRequest, response: Response):
+    """Registers a new athlete account using email and password."""
+    try:
+        user = await register_email_user(name=body.name, email=body.email, password=body.password)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    
+    token = create_access_token({"sub": user["_id"], "email": user["email"]})
+    response.set_cookie(
+        key="access_token",
+        value=token,
+        httponly=True,
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        samesite="lax",
+        secure=False
+    )
+    return TokenResponse(
+        access_token=token,
+        token_type="bearer",
+        user=UserPublic(**user)
+    )
+
+
+@router.post("/login", response_model=TokenResponse)
+async def login_with_email(body: EmailLoginRequest, response: Response):
+    """Authenticates an existing athlete using email and password."""
+    try:
+        user = await authenticate_email_user(email=body.email, password=body.password)
+    except ValueError as e:
+        detail_msg = str(e)
+        status_code = status.HTTP_400_BAD_REQUEST if "Google Sign-In" in detail_msg else status.HTTP_401_UNAUTHORIZED
+        raise HTTPException(status_code=status_code, detail=detail_msg)
+    
+    token = create_access_token({"sub": user["_id"], "email": user["email"]})
+    response.set_cookie(
+        key="access_token",
+        value=token,
+        httponly=True,
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        samesite="lax",
+        secure=False
+    )
+    return TokenResponse(
+        access_token=token,
+        token_type="bearer",
+        user=UserPublic(**user)
+    )
 
 
 @router.get("/google/login")

@@ -68,6 +68,24 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 export const api = {
   getAuthConfig: () => request<{ google_client_id: string; google_auth_enabled: boolean; dev_login_enabled: boolean }>('/auth/config'),
   
+  loginWithEmail: async (email: string, password: string) => {
+    const data = await request<{ access_token: string; user: User }>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    });
+    setToken(data.access_token);
+    return data;
+  },
+
+  registerWithEmail: async (email: string, password: string, name: string) => {
+    const data = await request<{ access_token: string; user: User }>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ email, password, name }),
+    });
+    setToken(data.access_token);
+    return data;
+  },
+
   demoLogin: async () => {
     const data = await request<{ access_token: string; user: User }>('/auth/demo-login', {
       method: 'POST',
