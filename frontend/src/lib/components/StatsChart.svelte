@@ -10,14 +10,28 @@
   } = $props();
 
   let hoveredIndex: number | null = $state(null);
+  let containerWidth = $state(800);
 
-  // Chart dimensions
-  const height = 240;
-  const paddingBottom = 30;
-  const paddingTop = 20;
-  const paddingX = 15;
+  // Chart dimensions & layout
+  const height = 260;
+  const paddingTop = 32;
+  const paddingBottom = 42;
+  const paddingX = 24;
 
   let maxVal = $derived(Math.max(...data.map(d => d.total_reps), 50));
+
+  // Dynamic responsive width: fills the container cleanly on wide displays,
+  // while ensuring a comfortable minimum slot width for large date ranges (e.g. 30 days)
+  const minSlotWidth = 36;
+  let chartWidth = $derived(Math.max(containerWidth || 700, data.length * minSlotWidth + paddingX * 2));
+  let usableWidth = $derived(chartWidth - paddingX * 2);
+  let slotWidth = $derived(data.length > 0 ? usableWidth / data.length : 0);
+  let barWidth = $derived(Math.min(Math.max(slotWidth * 0.52, 10), 28));
+
+  // Determine tick interval to prevent crowded or squished date labels
+  let labelStep = $derived(
+    slotWidth < 26 ? 4 : slotWidth < 46 ? 2 : 1
+  );
 
   function formatDate(dStr: string) {
     if (!dStr) return '';
@@ -26,6 +40,28 @@
     const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   }
+
+  function formatTooltipDate(dStr: string) {
+    if (!dStr) return '';
+    const parts = dStr.split('-');
+    if (parts.length < 3) return dStr;
+    const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  function shouldShowDate(index: number) {
+    if (data.length <= 1) return true;
+    if (hoveredIndex === index) return true;
+    // Align so today (the last day) is always shown, plus regular steps
+    const fromEnd = data.length - 1 - index;
+    return fromEnd % labelStep === 0;
+  }
+
+  let tooltipX = $derived.by(() => {
+    if (hoveredIndex === null || !data[hoveredIndex]) return 0;
+    const barCenterX = paddingX + (hoveredIndex + 0.5) * slotWidth;
+    return Math.max(12, Math.min(barCenterX - 85, chartWidth - 180));
+  });
 </script>
 
 <div class="chart-wrapper">
@@ -55,8 +91,12 @@
       <span>No workout data in this timeframe yet. Log some reps to see charts!</span>
     </div>
   {:else}
-    <div class="svg-container">
-      <svg viewBox="0 0 {Math.max(data.length * 45 + 40, 500)} {height}" preserveAspectRatio="none" class="chart-svg">
+    <div class="svg-container" bind:clientWidth={containerWidth}>
+      <svg
+        viewBox="0 0 {chartWidth} {height}"
+        style="width: {chartWidth}px; height: {height}px;"
+        class="chart-svg"
+      >
         <defs>
           <linearGradient id="grad-pushup" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stop-color="#10b981" />
@@ -72,16 +112,20 @@
           </linearGradient>
         </defs>
 
-        <!-- Background grid lines -->
-        <line x1="0" y1="{paddingTop}" x2="100%" y2="{paddingTop}" stroke="var(--chart-grid)" stroke-dasharray="4" />
-        <line x1="0" y1="{(height - paddingBottom + paddingTop) / 2}" x2="100%" y2="{(height - paddingBottom + paddingTop) / 2}" stroke="var(--chart-grid)" stroke-dasharray="4" />
-        <line x1="0" y1="{height - paddingBottom}" x2="100%" y2="{height - paddingBottom}" stroke="var(--chart-axis)" />
+        <!-- Background grid lines & subtle reference indicators -->
+        <line x1="{paddingX}" y1="{paddingTop}" x2="{chartWidth - paddingX}" y2="{paddingTop}" stroke="var(--chart-grid)" stroke-dasharray="4" />
+        <text x="{paddingX}" y="{paddingTop - 8}" class="axis-guide-label">{maxVal} reps</text>
+
+        <line x1="{paddingX}" y1="{(height - paddingBottom + paddingTop) / 2}" x2="{chartWidth - paddingX}" y2="{(height - paddingBottom + paddingTop) / 2}" stroke="var(--chart-grid)" stroke-dasharray="4" />
+        <text x="{paddingX}" y="{(height - paddingBottom + paddingTop) / 2 - 8}" class="axis-guide-label">{Math.round(maxVal / 2)}</text>
+
+        <line x1="{paddingX}" y1="{height - paddingBottom}" x2="{chartWidth - paddingX}" y2="{height - paddingBottom}" stroke="var(--chart-axis)" />
 
         <!-- Bars -->
         {#each data as day, i}
           {@const totalHeight = height - paddingBottom - paddingTop}
-          {@const barWidth = 24}
-          {@const x = paddingX + i * 45 + 15}
+          {@const x = paddingX + i * slotWidth + (slotWidth - barWidth) / 2}
+          {@const barCenterX = paddingX + (i + 0.5) * slotWidth}
 
           {@const pushupH = (day.pushups / maxVal) * totalHeight}
           {@const situpH = (day.situps / maxVal) * totalHeight}
@@ -89,15 +133,17 @@
 
           <g
             class="bar-group"
+            role="group"
+            aria-label="{formatDate(day.date)}: {day.total_reps} total reps"
             onmouseenter={() => hoveredIndex = i}
             onmouseleave={() => hoveredIndex = null}
           >
-            <!-- Hitbox -->
+            <!-- Hitbox covering the entire daily column for smooth hovering -->
             <rect
-              x={x - 8}
-              y={paddingTop}
-              width={barWidth + 16}
-              height={totalHeight}
+              x={paddingX + i * slotWidth}
+              y={paddingTop - 10}
+              width={slotWidth}
+              height={totalHeight + 15}
               fill="transparent"
               class="bar-hitbox"
             />
@@ -108,7 +154,7 @@
                 x={x}
                 y={height - paddingBottom - pushupH}
                 width={barWidth}
-                height={Math.max(pushupH, 2)}
+                height={Math.max(pushupH, 3)}
                 rx="4"
                 fill="url(#grad-pushup)"
                 class="bar-part"
@@ -120,7 +166,7 @@
                 x={x}
                 y={height - paddingBottom - pushupH - situpH}
                 width={barWidth}
-                height={Math.max(situpH, 2)}
+                height={Math.max(situpH, 3)}
                 rx="4"
                 fill="url(#grad-situp)"
                 class="bar-part"
@@ -132,25 +178,25 @@
                 x={x}
                 y={height - paddingBottom - pushupH - situpH - otherH}
                 width={barWidth}
-                height={Math.max(otherH, 2)}
+                height={Math.max(otherH, 3)}
                 rx="4"
                 fill="url(#grad-other)"
                 class="bar-part"
               />
             {/if}
 
-            <!-- Date label -->
-            <text
-              x={x + barWidth / 2}
-              y={height - 8}
-              text-anchor="middle"
-              font-size="10"
-              font-family="var(--font-family)"
-              fill={hoveredIndex === i ? 'var(--text-main)' : 'var(--text-dim)'}
-              font-weight={hoveredIndex === i ? '700' : '500'}
-            >
-              {formatDate(day.date)}
-            </text>
+            <!-- X-axis Date label -->
+            {#if shouldShowDate(i)}
+              <text
+                x={barCenterX}
+                y={height - 14}
+                text-anchor="middle"
+                class="axis-date-text"
+                class:active={hoveredIndex === i}
+              >
+                {formatDate(day.date)}
+              </text>
+            {/if}
           </g>
         {/each}
       </svg>
@@ -158,8 +204,8 @@
       <!-- Active Tooltip -->
       {#if hoveredIndex !== null && data[hoveredIndex]}
         {@const day = data[hoveredIndex]}
-        <div class="tooltip animate-pop-in" style="left: {Math.min(hoveredIndex * 45 + 30, 400)}px;">
-          <div class="tooltip-date">{formatDate(day.date)}</div>
+        <div class="tooltip animate-pop-in" style="left: {tooltipX}px;">
+          <div class="tooltip-date">{formatTooltipDate(day.date)}</div>
           <div class="tooltip-total">{day.total_reps} Total Reps</div>
           <div class="tooltip-breakdown">
             <span class="text-pushups">Push-ups: {day.pushups}</span>
@@ -181,6 +227,7 @@
     border-radius: var(--radius-lg);
     padding: 1.5rem;
     position: relative;
+    box-shadow: var(--shadow-card);
   }
 
   .chart-header {
@@ -201,20 +248,21 @@
     font-size: 0.8rem;
     color: var(--text-dim);
     display: block;
+    margin-top: 0.15rem;
   }
 
   .chart-legend {
     display: flex;
-    gap: 1rem;
+    gap: 1.25rem;
     align-items: center;
-    font-size: 0.8rem;
+    font-size: 0.85rem;
     color: var(--text-muted);
   }
 
   .legend-item {
     display: flex;
     align-items: center;
-    gap: 0.4rem;
+    gap: 0.45rem;
   }
 
   .legend-dot {
@@ -231,12 +279,24 @@
     position: relative;
     width: 100%;
     overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-hover) transparent;
+  }
+
+  .svg-container::-webkit-scrollbar {
+    height: 6px;
+  }
+
+  .svg-container::-webkit-scrollbar-thumb {
+    background: var(--border-hover);
+    border-radius: 4px;
   }
 
   .chart-svg {
-    width: 100%;
-    min-width: 450px;
-    height: 240px;
+    display: block;
+    height: 260px;
+    max-width: none;
   }
 
   .bar-hitbox {
@@ -247,6 +307,30 @@
     filter: brightness(1.25);
   }
 
+  .axis-guide-label {
+    font-family: var(--font-family);
+    font-size: 10px;
+    font-weight: 600;
+    fill: var(--text-dim);
+    opacity: 0.65;
+    user-select: none;
+  }
+
+  .axis-date-text {
+    font-family: var(--font-family);
+    font-size: 11px;
+    font-weight: 500;
+    fill: var(--text-muted);
+    letter-spacing: 0.01em;
+    transition: fill 0.15s ease, font-weight 0.15s ease;
+    user-select: none;
+  }
+
+  .axis-date-text.active {
+    fill: var(--text-main);
+    font-weight: 700;
+  }
+
   .tooltip {
     position: absolute;
     top: 10px;
@@ -255,11 +339,11 @@
     -webkit-backdrop-filter: blur(16px);
     border: 1px solid var(--border-hover);
     box-shadow: var(--shadow-card);
-    padding: 0.6rem 0.85rem;
+    padding: 0.65rem 0.9rem;
     border-radius: var(--radius-sm);
     pointer-events: none;
     z-index: 20;
-    min-width: 130px;
+    min-width: 150px;
   }
 
   .tooltip-date {
@@ -269,10 +353,10 @@
   }
 
   .tooltip-total {
-    font-size: 1rem;
+    font-size: 1.05rem;
     font-weight: 800;
     color: var(--text-main);
-    margin: 0.15rem 0;
+    margin: 0.2rem 0;
   }
 
   .tooltip-breakdown {
