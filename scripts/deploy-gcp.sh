@@ -141,6 +141,9 @@ if [ -z "$FRONTEND_URL" ]; then
     --platform managed \
     --update-env-vars "FRONTEND_URL=${SERVICE_URL}" \
     --project "${PROJECT_ID}"
+# 7. Auto-cleanup old builds & enforce free-tier storage limits
+if [ -f "${SCRIPT_DIR}/cleanup-gcp-artifacts.sh" ]; then
+  bash "${SCRIPT_DIR}/cleanup-gcp-artifacts.sh" --prune-now || true
 fi
 
 echo ""
