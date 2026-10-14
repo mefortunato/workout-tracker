@@ -284,7 +284,7 @@
   .pill-group {
     display: flex;
     gap: 0.35rem;
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--border-subtle);
     padding: 0.2rem;
     border-radius: var(--radius-sm);
   }
@@ -302,7 +302,7 @@
   }
   .pill-btn.active {
     background: var(--accent-emerald);
-    color: #041212;
+    color: #ffffff;
     font-weight: 700;
   }
 
@@ -386,7 +386,7 @@
   }
 
   .w-exercise-item {
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--border-subtle);
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-md);
     padding: 0.85rem;
@@ -413,7 +413,7 @@
   }
 
   .set-chip {
-    background: rgba(255, 255, 255, 0.06);
+    background: var(--border-subtle);
     padding: 0.2rem 0.45rem;
     border-radius: 4px;
     font-size: 0.78rem;
@@ -427,7 +427,7 @@
   }
 
   .set-chip-reps {
-    color: var(--accent-emerald-light);
+    color: var(--accent-emerald);
     font-weight: 700;
   }
 
@@ -437,7 +437,7 @@
   }
 
   .w-notes-box {
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--border-subtle);
     border-left: 3px solid var(--accent-cyan);
     padding: 0.6rem 0.85rem;
     border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
@@ -466,7 +466,7 @@
   .spinner {
     width: 36px;
     height: 36px;
-    border: 3px solid rgba(255, 255, 255, 0.1);
+    border: 3px solid var(--border-hover);
     border-top-color: var(--accent-emerald);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;

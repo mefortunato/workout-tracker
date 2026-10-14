@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { userStore, checkAuth, addToast } from '$lib/stores';
+  import { userStore, checkAuth, addToast, themeStore, toggleTheme } from '$lib/stores';
   import { api } from '$lib/api';
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
@@ -54,8 +54,34 @@
       </div>
     {/if}
 
-    <!-- Auth / Profile Section -->
+    <!-- Auth / Profile Section & Theme Switcher -->
     <div class="nav-auth">
+      <!-- Theme Switcher Button -->
+      <button
+        class="theme-toggle-btn"
+        onclick={toggleTheme}
+        title={$themeStore === 'dark' ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
+        aria-label="Toggle theme"
+      >
+        {#if $themeStore === 'dark'}
+          <svg class="theme-icon sun-icon" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="5"></circle>
+            <line x1="12" y1="1" x2="12" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="23"></line>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+            <line x1="1" y1="12" x2="3" y2="12"></line>
+            <line x1="21" y1="12" x2="23" y2="12"></line>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+          </svg>
+        {:else}
+          <svg class="theme-icon moon-icon" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+          </svg>
+        {/if}
+      </button>
+
       {#if $userStore}
         <div class="user-chip">
           {#if $userStore.picture}
@@ -120,6 +146,13 @@
       <a href="/stats" class="mobile-link" onclick={() => isMobileMenuOpen = false}>
         <span>📈</span> Analytics
       </a>
+      <button class="mobile-link theme-mobile-link" onclick={toggleTheme}>
+        {#if $themeStore === 'dark'}
+          <span>☀️</span> Switch to Light Mode
+        {:else}
+          <span>🌙</span> Switch to Dark Mode
+        {/if}
+      </button>
       <button class="mobile-link logout-link" onclick={handleLogout}>
         <span>🚪</span> Sign Out ({$userStore.name})
       </button>
@@ -132,10 +165,11 @@
     position: sticky;
     top: 0;
     z-index: 50;
-    background: rgba(9, 13, 22, 0.85);
+    background: var(--nav-bg);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
     border-bottom: 1px solid var(--border-subtle);
+    transition: background 0.25s ease, border-color 0.25s ease;
   }
 
   .nav-container {
@@ -208,25 +242,53 @@
 
   .nav-link:hover {
     color: var(--text-main);
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--border-subtle);
   }
 
   .nav-link.active {
-    color: var(--accent-emerald-light);
+    color: var(--accent-emerald);
     background: rgba(16, 185, 129, 0.12);
   }
 
   .nav-auth {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 0.65rem;
+  }
+
+  .theme-toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-md);
+    background: var(--nav-user-chip);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-muted);
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .theme-toggle-btn:hover {
+    color: var(--accent-amber);
+    background: var(--border-hover);
+    border-color: var(--border-hover);
+    transform: scale(1.08);
+  }
+
+  .theme-icon {
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .theme-toggle-btn:hover .theme-icon {
+    transform: rotate(20deg);
   }
 
   .user-chip {
     display: flex;
     align-items: center;
     gap: 0.6rem;
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--nav-user-chip);
     border: 1px solid var(--border-subtle);
     padding: 0.3rem 0.6rem;
     border-radius: var(--radius-full);
@@ -244,7 +306,7 @@
     height: 28px;
     border-radius: 50%;
     background: var(--gradient-emerald-cyan);
-    color: #041212;
+    color: #ffffff;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -285,8 +347,11 @@
   .mobile-menu {
     display: flex;
     flex-direction: column;
-    background: #0d1322;
+    background: var(--bg-card);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     border-top: 1px solid var(--border-subtle);
+    box-shadow: var(--shadow-card);
     padding: 1rem;
     gap: 0.5rem;
   }
@@ -299,7 +364,18 @@
     border-radius: var(--radius-md);
     color: var(--text-main);
     font-weight: 600;
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--border-subtle);
+    transition: all 0.2s ease;
+  }
+
+  .mobile-link:hover {
+    background: var(--border-hover);
+  }
+
+  .theme-mobile-link {
+    width: 100%;
+    text-align: left;
+    color: var(--accent-cyan);
   }
 
   .logout-link {

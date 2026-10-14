@@ -32,3 +32,32 @@ export async function checkAuth(): Promise<User | null> {
     loadingUser.set(false);
   }
 }
+
+export type Theme = 'dark' | 'light';
+export const themeStore = writable<Theme>('dark');
+
+export function initTheme(): Theme {
+  if (typeof window === 'undefined') return 'dark';
+  const saved = localStorage.getItem('pulsefit_theme') as Theme | null;
+  const preferred = saved || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+  setTheme(preferred);
+  return preferred;
+}
+
+export function setTheme(newTheme: Theme) {
+  themeStore.set(newTheme);
+  if (typeof document !== 'undefined') {
+    document.documentElement.setAttribute('data-theme', newTheme);
+  }
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem('pulsefit_theme', newTheme);
+  }
+}
+
+export function toggleTheme() {
+  themeStore.update((curr) => {
+    const next: Theme = curr === 'dark' ? 'light' : 'dark';
+    setTheme(next);
+    return next;
+  });
+}

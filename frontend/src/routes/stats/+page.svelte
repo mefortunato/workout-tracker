@@ -277,7 +277,7 @@
 
   .pill-group {
     display: flex;
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--border-subtle);
     padding: 0.2rem;
     border-radius: var(--radius-sm);
     gap: 0.25rem;
@@ -294,7 +294,7 @@
   .pill-btn:hover { color: var(--text-main); }
   .pill-btn.active {
     background: var(--accent-emerald);
-    color: #041212;
+    color: #ffffff;
     font-weight: 700;
   }
 
@@ -326,7 +326,7 @@
     display: flex;
     flex-direction: column;
     gap: 1rem;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--border-subtle);
   }
 
   .pr-card-top {
@@ -349,7 +349,7 @@
   .pr-stat-box {
     flex: 1;
     min-width: 100px;
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--border-subtle);
     padding: 0.75rem;
     border-radius: var(--radius-sm);
     display: flex;
@@ -366,7 +366,7 @@
   .stat-num {
     font-size: 1.35rem;
     font-weight: 900;
-    color: var(--accent-emerald-light);
+    color: var(--accent-emerald);
   }
 
   .stat-num small {
@@ -388,7 +388,7 @@
   .spinner {
     width: 36px;
     height: 36px;
-    border: 3px solid rgba(255, 255, 255, 0.1);
+    border: 3px solid var(--border-hover);
     border-top-color: var(--accent-emerald);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;

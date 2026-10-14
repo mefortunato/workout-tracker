@@ -3,7 +3,7 @@
   import { onMount } from 'svelte';
   import Navbar from '$lib/components/Navbar.svelte';
   import ToastContainer from '$lib/components/ToastContainer.svelte';
-  import { checkAuth, userStore, loadingUser, addToast } from '$lib/stores';
+  import { checkAuth, userStore, loadingUser, addToast, initTheme } from '$lib/stores';
   import { page } from '$app/state';
   import { goto } from '$app/navigation';
 
@@ -15,6 +15,7 @@
   }
 
   onMount(async () => {
+    initTheme();
     if (typeof window !== 'undefined') {
       const url = new URL(window.location.href);
       if (url.searchParams.get('auth_success') === '1') {
@@ -79,7 +80,7 @@
   .spinner {
     width: 36px;
     height: 36px;
-    border: 3px solid rgba(255, 255, 255, 0.1);
+    border: 3px solid var(--border-hover);
     border-top-color: var(--accent-emerald);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;

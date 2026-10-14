@@ -277,7 +277,7 @@
     flex-direction: column;
     gap: 1.5rem;
     border: 1px solid var(--border-hover);
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.8);
+    box-shadow: var(--shadow-card);
     text-align: center;
   }
 
@@ -334,20 +334,20 @@
     align-items: center;
     gap: 1rem;
     padding: 0.95rem 1.25rem;
-    background: linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.98) 100%);
+    background: var(--google-card-bg);
     border: 1.5px solid rgba(66, 133, 244, 0.4);
     border-radius: var(--radius-md);
     text-decoration: none;
     cursor: pointer;
     transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 20px rgba(66, 133, 244, 0.12);
+    box-shadow: var(--shadow-sm), 0 0 15px rgba(66, 133, 244, 0.12);
     position: relative;
   }
 
   .google-prominent-card:hover {
     border-color: #4285f4;
-    background: linear-gradient(135deg, rgba(37, 99, 235, 0.15) 0%, rgba(15, 23, 42, 0.98) 100%);
-    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.6), 0 0 28px rgba(66, 133, 244, 0.3);
+    background: var(--google-card-bg);
+    box-shadow: var(--shadow-card), 0 0 24px rgba(66, 133, 244, 0.25);
     transform: translateY(-2px);
   }
 

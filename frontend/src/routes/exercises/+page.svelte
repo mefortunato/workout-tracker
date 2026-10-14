@@ -301,14 +301,14 @@
     font-size: 0.82rem;
     font-weight: 600;
     color: var(--text-muted);
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--border-subtle);
     border-radius: var(--radius-sm);
     transition: all 0.2s;
   }
   .cat-pill:hover { color: var(--text-main); }
   .cat-pill.active {
     background: var(--accent-emerald);
-    color: #041212;
+    color: #ffffff;
     font-weight: 700;
   }
 
@@ -446,7 +446,7 @@
   .spinner {
     width: 36px;
     height: 36px;
-    border: 3px solid rgba(255, 255, 255, 0.1);
+    border: 3px solid var(--border-hover);
     border-top-color: var(--accent-emerald);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;

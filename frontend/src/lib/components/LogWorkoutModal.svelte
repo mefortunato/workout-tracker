@@ -369,7 +369,7 @@
   }
 
   .exercise-card {
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--border-subtle);
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-md);
     padding: 1rem;
@@ -464,7 +464,7 @@
   .btn-text-add {
     font-size: 0.85rem;
     font-weight: 600;
-    color: var(--accent-emerald-light);
+    color: var(--accent-emerald);
     padding: 0.25rem 0.5rem;
     border-radius: var(--radius-sm);
     transition: background 0.2s;

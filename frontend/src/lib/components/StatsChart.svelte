@@ -73,9 +73,9 @@
         </defs>
 
         <!-- Background grid lines -->
-        <line x1="0" y1="{paddingTop}" x2="100%" y2="{paddingTop}" stroke="rgba(255,255,255,0.06)" stroke-dasharray="4" />
-        <line x1="0" y1="{(height - paddingBottom + paddingTop) / 2}" x2="100%" y2="{(height - paddingBottom + paddingTop) / 2}" stroke="rgba(255,255,255,0.06)" stroke-dasharray="4" />
-        <line x1="0" y1="{height - paddingBottom}" x2="100%" y2="{height - paddingBottom}" stroke="rgba(255,255,255,0.12)" />
+        <line x1="0" y1="{paddingTop}" x2="100%" y2="{paddingTop}" stroke="var(--chart-grid)" stroke-dasharray="4" />
+        <line x1="0" y1="{(height - paddingBottom + paddingTop) / 2}" x2="100%" y2="{(height - paddingBottom + paddingTop) / 2}" stroke="var(--chart-grid)" stroke-dasharray="4" />
+        <line x1="0" y1="{height - paddingBottom}" x2="100%" y2="{height - paddingBottom}" stroke="var(--chart-axis)" />
 
         <!-- Bars -->
         {#each data as day, i}
@@ -250,9 +250,11 @@
   .tooltip {
     position: absolute;
     top: 10px;
-    background: #0f172a;
+    background: var(--bg-card);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
     border: 1px solid var(--border-hover);
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.7);
+    box-shadow: var(--shadow-card);
     padding: 0.6rem 0.85rem;
     border-radius: var(--radius-sm);
     pointer-events: none;

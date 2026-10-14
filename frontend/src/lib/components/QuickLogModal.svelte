@@ -229,7 +229,7 @@
   .btn-rep-step {
     width: 3.2rem;
     height: 3.2rem;
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--border-subtle);
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-md);
     color: var(--text-main);
@@ -241,7 +241,7 @@
     transition: all 0.2s;
   }
   .btn-rep-step:hover {
-    background: rgba(255, 255, 255, 0.12);
+    background: var(--border-hover);
     border-color: var(--border-hover);
   }
 
@@ -255,9 +255,9 @@
     flex: 1;
     padding: 0.45rem 0;
     background: rgba(16, 185, 129, 0.08);
-    border: 1px solid rgba(16, 185, 129, 0.2);
+    border: 1px solid rgba(16, 185, 129, 0.25);
     border-radius: var(--radius-sm);
-    color: var(--accent-emerald-light);
+    color: var(--accent-emerald);
     font-size: 0.85rem;
     font-weight: 700;
     transition: all 0.2s;

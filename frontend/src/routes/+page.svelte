@@ -421,7 +421,7 @@
   }
 
   .feature-box {
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--border-subtle);
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-md);
     padding: 1.25rem;
@@ -452,7 +452,7 @@
     padding: 1.5rem 1.75rem;
     flex-wrap: wrap;
     gap: 1rem;
-    background: linear-gradient(135deg, rgba(22, 30, 49, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%);
+    background: var(--gradient-card);
   }
 
   .welcome-heading {
@@ -540,7 +540,7 @@
   }
 
   .exercise-quick-card {
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--border-subtle);
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-md);
     padding: 1rem;
@@ -570,7 +570,7 @@
     padding: 0.65rem 0;
     background: rgba(16, 185, 129, 0.12);
     border: 1px solid rgba(16, 185, 129, 0.3);
-    color: var(--accent-emerald-light);
+    color: var(--accent-emerald);
     border-radius: var(--radius-sm);
     font-weight: 800;
     font-size: 0.95rem;
@@ -578,7 +578,7 @@
   }
   .btn-rep-fast:hover {
     background: var(--accent-emerald);
-    color: #041212;
+    color: #ffffff;
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
   }
@@ -601,7 +601,7 @@
   }
   .btn-rep-fast.amber:hover {
     background: var(--accent-amber);
-    color: #041212;
+    color: #ffffff;
     box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
   }
 
@@ -676,7 +676,7 @@
   .mini-progress-track {
     width: 100%;
     height: 6px;
-    background: rgba(255, 255, 255, 0.08);
+    background: var(--border-hover);
     border-radius: var(--radius-full);
     overflow: hidden;
     margin-top: 0.35rem;
@@ -761,7 +761,7 @@
   }
 
   .feed-exercise-pill {
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--border-subtle);
     border: 1px solid var(--border-subtle);
     padding: 0.3rem 0.65rem;
     border-radius: var(--radius-sm);

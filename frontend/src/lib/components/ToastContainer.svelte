@@ -43,9 +43,11 @@
     align-items: flex-start;
     gap: 0.75rem;
     padding: 0.85rem 1rem;
-    background: #111827;
+    background: var(--bg-card);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
     border-radius: var(--radius-md);
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.7);
+    box-shadow: var(--shadow-card);
     border: 1px solid var(--border-hover);
   }
 

@@ -181,7 +181,7 @@
   .progress-track {
     width: 100%;
     height: 10px;
-    background: rgba(255, 255, 255, 0.07);
+    background: var(--border-hover);
     border-radius: var(--radius-full);
     overflow: hidden;
   }
@@ -215,15 +215,15 @@
     padding: 0.25rem 0.65rem;
     font-size: 0.78rem;
     font-weight: 700;
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--border-subtle);
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-sm);
     color: var(--text-main);
     transition: all 0.2s;
   }
   .btn-goal-step:hover {
-    background: rgba(16, 185, 129, 0.2);
+    background: rgba(16, 185, 129, 0.18);
     border-color: var(--accent-emerald);
-    color: var(--accent-emerald-light);
+    color: var(--accent-emerald);
   }
 </style>
