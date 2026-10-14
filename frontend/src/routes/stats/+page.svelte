@@ -9,6 +9,7 @@
   let prs = $state<PersonalRecord[]>([]);
   let chartData = $state<ChartDay[]>([]);
   let selectedDays = $state(14);
+  let chartType = $state<'bar' | 'line'>('bar');
   let isLoading = $state(true);
 
   onMount(async () => {
@@ -101,36 +102,69 @@
       </div>
     </div>
 
-    <!-- Chart Section with Range Toggle -->
+    <!-- Chart Section with Range and Type Toggle -->
     <div class="chart-section">
-      <div class="range-toggle-bar">
-        <span class="range-label">Timeframe:</span>
-        <div class="pill-group">
-          <button
-            class="pill-btn"
-            class:active={selectedDays === 7}
-            onclick={() => handleDaysChange(7)}
-          >
-            Last 7 Days
-          </button>
-          <button
-            class="pill-btn"
-            class:active={selectedDays === 14}
-            onclick={() => handleDaysChange(14)}
-          >
-            Last 14 Days
-          </button>
-          <button
-            class="pill-btn"
-            class:active={selectedDays === 30}
-            onclick={() => handleDaysChange(30)}
-          >
-            Last 30 Days
-          </button>
+      <div class="controls-bar">
+        <div class="control-group">
+          <span class="control-label">Plot Type:</span>
+          <div class="pill-group">
+            <button
+              class="pill-btn"
+              class:active={chartType === 'bar'}
+              onclick={() => chartType = 'bar'}
+              aria-label="Bar chart view"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <rect x="3" y="12" width="4" height="9" rx="1"></rect>
+                <rect x="10" y="6" width="4" height="15" rx="1"></rect>
+                <rect x="17" y="3" width="4" height="18" rx="1"></rect>
+              </svg>
+              <span>Bar</span>
+            </button>
+            <button
+              class="pill-btn"
+              class:active={chartType === 'line'}
+              onclick={() => chartType = 'line'}
+              aria-label="Line chart view"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <polyline points="22 6 13.5 15 8.5 10 2 17"></polyline>
+                <polyline points="16 6 22 6 22 12"></polyline>
+              </svg>
+              <span>Line</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <span class="control-label">Timeframe:</span>
+          <div class="pill-group">
+            <button
+              class="pill-btn"
+              class:active={selectedDays === 7}
+              onclick={() => handleDaysChange(7)}
+            >
+              Last 7 Days
+            </button>
+            <button
+              class="pill-btn"
+              class:active={selectedDays === 14}
+              onclick={() => handleDaysChange(14)}
+            >
+              Last 14 Days
+            </button>
+            <button
+              class="pill-btn"
+              class:active={selectedDays === 30}
+              onclick={() => handleDaysChange(30)}
+            >
+              Last 30 Days
+            </button>
+          </div>
         </div>
       </div>
 
-      <StatsChart data={chartData} title="Reps & Volume Distribution" />
+      <StatsChart data={chartData} {chartType} title="Reps & Volume Distribution" />
     </div>
 
     <!-- Personal Records Showcase -->
@@ -262,14 +296,21 @@
     gap: 0.75rem;
   }
 
-  .range-toggle-bar {
+  .controls-bar {
     display: flex;
-    justify-content: flex-end;
+    justify-content: space-between;
     align-items: center;
-    gap: 0.75rem;
+    flex-wrap: wrap;
+    gap: 0.85rem;
   }
 
-  .range-label {
+  .control-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .control-label {
     font-size: 0.82rem;
     font-weight: 700;
     color: var(--text-dim);
@@ -284,6 +325,9 @@
   }
 
   .pill-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
     padding: 0.35rem 0.75rem;
     font-size: 0.8rem;
     font-weight: 600;
@@ -291,11 +335,17 @@
     border-radius: var(--radius-sm);
     transition: all 0.2s;
   }
+  .pill-btn svg {
+    opacity: 0.85;
+  }
   .pill-btn:hover { color: var(--text-main); }
   .pill-btn.active {
     background: var(--accent-emerald);
     color: #ffffff;
     font-weight: 700;
+  }
+  .pill-btn.active svg {
+    opacity: 1;
   }
 
   /* PR Showcase */

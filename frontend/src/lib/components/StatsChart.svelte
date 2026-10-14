@@ -6,10 +6,12 @@
 
   let {
     data = [],
-    title = 'Volume & Reps Over Time'
+    title = 'Volume & Reps Over Time',
+    chartType = $bindable<'bar' | 'line'>('bar')
   }: {
     data?: ChartDay[];
     title?: string;
+    chartType?: 'bar' | 'line';
   } = $props();
 
   let canvasEl = $state<HTMLCanvasElement | null>(null);
@@ -33,12 +35,17 @@
     }
 
     const isLight = $themeStore === 'light';
+    const isLine = chartType === 'line';
     const labels = data.map(d => formatDate(d.date));
 
-    // Colors matching pulsefit design system
+    // Theme-tailored colors
     const pushupColor = isLight ? '#059669' : '#10b981';
     const situpColor = isLight ? '#0284c7' : '#06b6d4';
     const otherColor = isLight ? '#7c3aed' : '#8b5cf6';
+
+    const pushupFill = isLight ? 'rgba(5, 150, 105, 0.12)' : 'rgba(16, 185, 129, 0.16)';
+    const situpFill = isLight ? 'rgba(2, 132, 199, 0.12)' : 'rgba(6, 182, 212, 0.16)';
+    const otherFill = isLight ? 'rgba(124, 58, 237, 0.12)' : 'rgba(139, 92, 246, 0.16)';
 
     const axisBorderColor = isLight ? 'rgba(15, 23, 42, 0.15)' : 'rgba(255, 255, 255, 0.12)';
     const gridColor = isLight ? 'rgba(15, 23, 42, 0.06)' : 'rgba(255, 255, 255, 0.06)';
@@ -51,12 +58,57 @@
     const tooltipTitleColor = isLight ? '#0f172a' : '#f8fafc';
     const tooltipBodyColor = isLight ? '#334155' : '#cbd5e1';
 
-    const chartConfig = {
-      type: 'bar' as const,
-      data: {
-        labels,
-        datasets: [
+    const datasets = isLine
+      ? [
           {
+            type: 'line' as const,
+            label: 'Push-ups',
+            data: data.map(d => d.pushups),
+            borderColor: pushupColor,
+            backgroundColor: pushupFill,
+            fill: true,
+            tension: 0.35,
+            borderWidth: 2.5,
+            pointRadius: data.length > 20 ? 3 : 4.5,
+            pointHoverRadius: 6.5,
+            pointBackgroundColor: pushupColor,
+            pointBorderColor: isLight ? '#ffffff' : '#0f172a',
+            pointBorderWidth: 2,
+          },
+          {
+            type: 'line' as const,
+            label: 'Sit-ups',
+            data: data.map(d => d.situps),
+            borderColor: situpColor,
+            backgroundColor: situpFill,
+            fill: true,
+            tension: 0.35,
+            borderWidth: 2.5,
+            pointRadius: data.length > 20 ? 3 : 4.5,
+            pointHoverRadius: 6.5,
+            pointBackgroundColor: situpColor,
+            pointBorderColor: isLight ? '#ffffff' : '#0f172a',
+            pointBorderWidth: 2,
+          },
+          {
+            type: 'line' as const,
+            label: 'Other',
+            data: data.map(d => d.other_reps),
+            borderColor: otherColor,
+            backgroundColor: otherFill,
+            fill: true,
+            tension: 0.35,
+            borderWidth: 2.5,
+            pointRadius: data.length > 20 ? 3 : 4.5,
+            pointHoverRadius: 6.5,
+            pointBackgroundColor: otherColor,
+            pointBorderColor: isLight ? '#ffffff' : '#0f172a',
+            pointBorderWidth: 2,
+          }
+        ]
+      : [
+          {
+            type: 'bar' as const,
             label: 'Push-ups',
             data: data.map(d => d.pushups),
             backgroundColor: pushupColor,
@@ -65,6 +117,7 @@
             borderSkipped: false,
           },
           {
+            type: 'bar' as const,
             label: 'Sit-ups',
             data: data.map(d => d.situps),
             backgroundColor: situpColor,
@@ -73,6 +126,7 @@
             borderSkipped: false,
           },
           {
+            type: 'bar' as const,
             label: 'Other',
             data: data.map(d => d.other_reps),
             backgroundColor: otherColor,
@@ -80,7 +134,13 @@
             borderRadius: 4,
             borderSkipped: false,
           }
-        ]
+        ];
+
+    const chartConfig = {
+      type: chartType,
+      data: {
+        labels,
+        datasets,
       },
       options: {
         responsive: true,
@@ -138,7 +198,7 @@
         },
         scales: {
           x: {
-            stacked: true,
+            stacked: !isLine,
             grid: {
               display: false,
             },
@@ -158,7 +218,7 @@
             }
           },
           y: {
-            stacked: true,
+            stacked: !isLine,
             beginAtZero: true,
             grid: {
               color: gridColor,
@@ -183,18 +243,24 @@
     };
 
     if (chartInstance) {
-      chartInstance.data = chartConfig.data;
-      chartInstance.options = chartConfig.options;
-      chartInstance.update();
+      if (chartInstance.config.type !== chartType) {
+        chartInstance.destroy();
+        chartInstance = new Chart(canvasEl, chartConfig as any);
+      } else {
+        chartInstance.data = chartConfig.data as any;
+        chartInstance.options = chartConfig.options as any;
+        chartInstance.update();
+      }
     } else {
-      chartInstance = new Chart(canvasEl, chartConfig);
+      chartInstance = new Chart(canvasEl, chartConfig as any);
     }
   }
 
   $effect(() => {
-    // Re-render whenever data, theme, or canvas element reference updates
+    // Re-render whenever data, chartType, theme, or canvas element changes
     const _d = data;
     const _t = $themeStore;
+    const _type = chartType;
     const _el = canvasEl;
     if (_el && _d) {
       renderChart();
@@ -213,7 +279,9 @@
   <div class="chart-header">
     <div class="title-group">
       <h3 class="chart-title">{title}</h3>
-      <span class="chart-subtitle">Daily Push-ups, Sit-ups & Total Reps</span>
+      <span class="chart-subtitle">
+        {chartType === 'line' ? 'Daily Exercise Trajectories & Rep Volume' : 'Daily Push-ups, Sit-ups & Total Reps'}
+      </span>
     </div>
     <div class="chart-legend">
       <div class="legend-item">
