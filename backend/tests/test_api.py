@@ -216,3 +216,74 @@ async def test_email_register_and_login():
         })
         assert bad_login.status_code == 401
 
+
+@pytest.mark.asyncio
+async def test_challenges_flow():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        # User 1 (Demo Athlete)
+        login1 = await client.post("/api/auth/demo-login")
+        token1 = login1.json()["access_token"]
+        headers1 = {"Authorization": f"Bearer {token1}"}
+
+        # User 2
+        import uuid
+        u2_email = f"user_{uuid.uuid4().hex[:6]}@example.com"
+        reg2 = await client.post("/api/auth/register", json={
+            "name": "Challenger Bob",
+            "email": u2_email,
+            "password": "Password123!"
+        })
+        token2 = reg2.json()["access_token"]
+        headers2 = {"Authorization": f"Bearer {token2}"}
+
+        # 1. User 1 creates a challenge
+        create_resp = await client.post("/api/challenges", headers=headers1, json={
+            "title": "October 500 Push-ups",
+            "description": "Reach 500 push-ups together!",
+            "challenge_type": "total_volume",
+            "exercise_name": "Push-ups",
+            "target_value": 500,
+            "start_date": "2026-10-01",
+            "end_date": "2026-10-31"
+        })
+        assert create_resp.status_code == 201
+        c_data = create_resp.json()
+        assert c_data["title"] == "October 500 Push-ups"
+        assert c_data["target_value"] == 500
+        assert "invite_code" in c_data
+        invite_code = c_data["invite_code"]
+        c_id = c_data["_id"]
+
+        # 2. User 2 joins the challenge with the invite code
+        join_resp = await client.post("/api/challenges/join", headers=headers2, json={
+            "invite_code": invite_code
+        })
+        assert join_resp.status_code == 200
+        join_data = join_resp.json()
+        assert join_data["participants_count"] == 2
+        assert len(join_data["leaderboard"]) == 2
+
+        # 3. User 2 logs some push-ups
+        await client.post("/api/workouts/quick-log", headers=headers2, json={
+            "exercise_name": "Push-ups",
+            "reps": 50
+        })
+
+        # 4. View challenge details: Leaderboard should reflect User 2's progress
+        detail_resp = await client.get(f"/api/challenges/{c_id}", headers=headers1)
+        assert detail_resp.status_code == 200
+        detail_data = detail_resp.json()
+        leaderboard = detail_data["leaderboard"]
+        assert len(leaderboard) == 2
+        # Verify rank 1 has 50 completed reps
+        assert leaderboard[0]["completed_reps"] >= 50
+
+        # 5. User 2 leaves the challenge
+        leave_resp = await client.post(f"/api/challenges/{c_id}/leave", headers=headers2)
+        assert leave_resp.status_code == 200
+
+        # 6. Verify participant count decreased
+        after_leave = await client.get(f"/api/challenges/{c_id}", headers=headers1)
+        assert after_leave.json()["participants_count"] == 1
+
+

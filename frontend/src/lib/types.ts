@@ -122,3 +122,53 @@ export interface ToastMessage {
   message: string;
   type: 'success' | 'info' | 'error';
 }
+
+export type ChallengeType = 'total_volume' | 'daily_streak';
+
+export interface ChallengeParticipantProgress {
+  user_id: string;
+  name: string;
+  avatar?: string | null;
+  joined_at: string;
+  completed_reps: number;
+  target_reps: number;
+  days_completed: number;
+  target_days: number;
+  current_streak: number;
+  progress_percentage: number;
+  is_completed: boolean;
+  rank: number;
+  last_active?: string | null;
+}
+
+export interface ChallengeItem {
+  _id: string;
+  title: string;
+  description?: string;
+  challenge_type: ChallengeType;
+  exercise_name?: string;
+  target_value: number;
+  start_date: string;
+  end_date: string;
+  creator_id: string;
+  creator_name: string;
+  invite_code: string;
+  participants_count: number;
+  is_user_joined: boolean;
+  user_progress?: ChallengeParticipantProgress | null;
+  leaderboard: ChallengeParticipantProgress[];
+  days_remaining: number;
+  status: 'active' | 'completed' | 'upcoming';
+  created_at: string;
+}
+
+export interface ChallengeCreateInput {
+  title: string;
+  description?: string;
+  challenge_type: ChallengeType;
+  exercise_name?: string;
+  target_value: number;
+  start_date: string;
+  end_date: string;
+}
+

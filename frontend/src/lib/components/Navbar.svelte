@@ -51,6 +51,9 @@
         <a href="/stats" class="nav-link" class:active={page.url.pathname.startsWith('/stats')}>
           <span class="icon">📈</span> Analytics
         </a>
+        <a href="/challenges" class="nav-link" class:active={page.url.pathname.startsWith('/challenges')}>
+          <span class="icon">🏆</span> Challenges
+        </a>
       </div>
     {/if}
 
@@ -145,6 +148,9 @@
       </a>
       <a href="/stats" class="mobile-link" onclick={() => isMobileMenuOpen = false}>
         <span>📈</span> Analytics
+      </a>
+      <a href="/challenges" class="mobile-link" onclick={() => isMobileMenuOpen = false}>
+        <span>🏆</span> Challenges
       </a>
       <button class="mobile-link theme-mobile-link" onclick={toggleTheme}>
         {#if $themeStore === 'dark'}

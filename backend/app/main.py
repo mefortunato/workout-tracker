@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.database import init_db, close_db
-from app.routers import auth, workouts, exercises, stats, goals
+from app.routers import auth, workouts, exercises, stats, goals, challenges
 
 logging.basicConfig(
     level=logging.INFO,
@@ -55,6 +55,7 @@ app.include_router(workouts.router)
 app.include_router(exercises.router)
 app.include_router(stats.router)
 app.include_router(goals.router)
+app.include_router(challenges.router)
 
 
 @app.get("/api/health", tags=["Health"])

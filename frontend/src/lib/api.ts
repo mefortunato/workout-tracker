@@ -8,6 +8,8 @@ import type {
   StatsSummary,
   PersonalRecord,
   ChartDay,
+  ChallengeItem,
+  ChallengeCreateInput,
 } from './types';
 
 const API_BASE = '/api';
@@ -195,4 +197,31 @@ export const api = {
 
   deleteGoal: (id: string) =>
     request<void>(`/goals/${id}`, { method: 'DELETE' }),
+
+  // Challenges API
+  getChallenges: () => request<ChallengeItem[]>('/challenges'),
+
+  getChallenge: (id: string) => request<ChallengeItem>(`/challenges/${id}`),
+
+  createChallenge: (data: ChallengeCreateInput) =>
+    request<ChallengeItem>('/challenges', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  joinChallenge: (inviteCode: string) =>
+    request<ChallengeItem>('/challenges/join', {
+      method: 'POST',
+      body: JSON.stringify({ invite_code: inviteCode }),
+    }),
+
+  leaveChallenge: (id: string) =>
+    request<{ message: string }>(`/challenges/${id}/leave`, {
+      method: 'POST',
+    }),
+
+  deleteChallenge: (id: string) =>
+    request<{ message: string }>(`/challenges/${id}`, {
+      method: 'DELETE',
+    }),
 };

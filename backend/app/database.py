@@ -115,6 +115,9 @@ async def init_db():
         await db.workouts.create_index([("user_id", 1), ("exercises.exercise_name", 1)])
         await db.goals.create_index([("user_id", 1), ("is_active", 1)])
         await db.exercises.create_index([("name", 1), ("user_id", 1)])
+        await db.challenges.create_index("invite_code", unique=True)
+        await db.challenges.create_index("participants.user_id")
+        await db.challenges.create_index("creator_id")
 
         # Seed default exercises if none exist
         count = await db.exercises.count_documents({"is_default": True})
