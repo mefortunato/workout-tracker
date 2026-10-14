@@ -27,6 +27,14 @@
   );
   let isSubmittingCreate = $state(false);
 
+  // Derive duration in days between start and end date
+  let durationDaysDiff = $derived.by(() => {
+    if (!newStartDate || !newEndDate) return null;
+    const s = new Date(newStartDate).getTime();
+    const e = new Date(newEndDate).getTime();
+    return Math.round((e - s) / (24 * 60 * 60 * 1000));
+  });
+
   // Join Form State
   let joinCode = $state('');
   let isSubmittingJoin = $state(false);
@@ -434,19 +442,21 @@
   <div class="modal-backdrop" role="presentation" onclick={() => selectedChallenge = null}>
     <div class="modal-content modal-leaderboard animate-pop-in" role="dialog" aria-modal="true" tabindex="-1" onclick={(e) => e.stopPropagation()}>
       <div class="modal-header">
-        <div class="header-tag-row">
-          <span class="type-pill" class:pill-volume={selectedChallenge.challenge_type === 'total_volume'}>
-            {selectedChallenge.challenge_type === 'total_volume' ? '⚡ Total Volume' : '🔥 Daily Streak'}
-          </span>
-          <span class="status-badge status-active">
-            {selectedChallenge.status === 'active' ? `${selectedChallenge.days_remaining} Days Remaining` : selectedChallenge.status}
-          </span>
+        <div class="modal-header-content">
+          <div class="header-tag-row">
+            <span class="type-pill" class:pill-volume={selectedChallenge.challenge_type === 'total_volume'}>
+              {selectedChallenge.challenge_type === 'total_volume' ? '⚡ Total Volume' : '🔥 Daily Streak'}
+            </span>
+            <span class="status-badge status-active">
+              {selectedChallenge.status === 'active' ? `${selectedChallenge.days_remaining} Days Remaining` : selectedChallenge.status}
+            </span>
+          </div>
+          <h2 class="modal-title">{selectedChallenge.title}</h2>
+          {#if selectedChallenge.description}
+            <p class="modal-subtitle">{selectedChallenge.description}</p>
+          {/if}
         </div>
-        <h2 class="modal-title">{selectedChallenge.title}</h2>
-        {#if selectedChallenge.description}
-          <p class="modal-subtitle">{selectedChallenge.description}</p>
-        {/if}
-        <button class="close-btn" onclick={() => selectedChallenge = null}>✕</button>
+        <button class="close-btn" onclick={() => selectedChallenge = null} aria-label="Close modal">✕</button>
       </div>
 
       <!-- Challenge Specs & Invite Bar -->
@@ -594,14 +604,14 @@
   <div class="modal-backdrop" role="presentation" onclick={() => isCreateModalOpen = false}>
     <div class="modal-content animate-pop-in" role="dialog" aria-modal="true" tabindex="-1" onclick={(e) => e.stopPropagation()}>
       <div class="modal-header">
-        <div>
+        <div class="modal-header-content">
           <h2 class="modal-title">Create Group Challenge</h2>
           <p class="modal-subtitle">Start a private challenge and invite workout partners with a code.</p>
         </div>
-        <button class="close-btn" onclick={() => isCreateModalOpen = false}>✕</button>
+        <button class="close-btn" onclick={() => isCreateModalOpen = false} aria-label="Close modal">✕</button>
       </div>
 
-      <form onsubmit={handleCreateChallenge}>
+      <form class="modal-form" onsubmit={handleCreateChallenge}>
         <div class="form-group">
           <label for="ch-title" class="form-label">Challenge Title</label>
           <input
@@ -686,22 +696,21 @@
               min="1"
               required
             />
+            <!-- Quick Target Presets directly inside the target form-group -->
+            <div class="target-presets-row">
+              <span class="preset-label">Presets:</span>
+              {#if newType === 'total_volume'}
+                <button type="button" class="preset-btn" class:active={newTargetValue === 250} onclick={() => newTargetValue = 250}>250</button>
+                <button type="button" class="preset-btn" class:active={newTargetValue === 500} onclick={() => newTargetValue = 500}>500</button>
+                <button type="button" class="preset-btn" class:active={newTargetValue === 1000} onclick={() => newTargetValue = 1000}>1,000</button>
+                <button type="button" class="preset-btn" class:active={newTargetValue === 2500} onclick={() => newTargetValue = 2500}>2,500</button>
+              {:else}
+                <button type="button" class="preset-btn" class:active={newTargetValue === 25} onclick={() => newTargetValue = 25}>25/day</button>
+                <button type="button" class="preset-btn" class:active={newTargetValue === 50} onclick={() => newTargetValue = 50}>50/day</button>
+                <button type="button" class="preset-btn" class:active={newTargetValue === 100} onclick={() => newTargetValue = 100}>100/day</button>
+              {/if}
+            </div>
           </div>
-        </div>
-
-        <!-- Quick Target Presets -->
-        <div class="target-presets-row">
-          <span class="preset-label">Presets:</span>
-          {#if newType === 'total_volume'}
-            <button type="button" class="preset-btn" onclick={() => newTargetValue = 250}>250</button>
-            <button type="button" class="preset-btn" onclick={() => newTargetValue = 500}>500</button>
-            <button type="button" class="preset-btn" onclick={() => newTargetValue = 1000}>1,000</button>
-            <button type="button" class="preset-btn" onclick={() => newTargetValue = 2500}>2,500</button>
-          {:else}
-            <button type="button" class="preset-btn" onclick={() => newTargetValue = 25}>25/day</button>
-            <button type="button" class="preset-btn" onclick={() => newTargetValue = 50}>50/day</button>
-            <button type="button" class="preset-btn" onclick={() => newTargetValue = 100}>100/day</button>
-          {/if}
         </div>
 
         <!-- Duration Presets & Dates -->
@@ -709,17 +718,17 @@
           <div class="dates-header-row">
             <span class="form-label">Duration Period</span>
             <div class="duration-quick-pills">
-              <button type="button" class="pill-preset" onclick={() => setDurationDays(7)}>7 Days</button>
-              <button type="button" class="pill-preset" onclick={() => setDurationDays(14)}>14 Days</button>
-              <button type="button" class="pill-preset" onclick={() => setDurationDays(30)}>30 Days</button>
+              <button type="button" class="pill-preset" class:active={durationDaysDiff === 7} onclick={() => setDurationDays(7)}>7 Days</button>
+              <button type="button" class="pill-preset" class:active={durationDaysDiff === 14} onclick={() => setDurationDays(14)}>14 Days</button>
+              <button type="button" class="pill-preset" class:active={durationDaysDiff === 30} onclick={() => setDurationDays(30)}>30 Days</button>
             </div>
           </div>
           <div class="form-row">
-            <div>
+            <div class="date-field-col">
               <span class="input-sub-label">Start Date</span>
               <input type="date" class="input-field" bind:value={newStartDate} required />
             </div>
-            <div>
+            <div class="date-field-col">
               <span class="input-sub-label">End Date</span>
               <input type="date" class="input-field" bind:value={newEndDate} required />
             </div>
@@ -749,14 +758,14 @@
   <div class="modal-backdrop" role="presentation" onclick={() => isJoinModalOpen = false}>
     <div class="modal-content modal-join animate-pop-in" role="dialog" aria-modal="true" tabindex="-1" onclick={(e) => e.stopPropagation()}>
       <div class="modal-header">
-        <div>
+        <div class="modal-header-content">
           <h2 class="modal-title">Join Group Challenge</h2>
           <p class="modal-subtitle">Enter the invite code shared with you by a group creator.</p>
         </div>
-        <button class="close-btn" onclick={() => isJoinModalOpen = false}>✕</button>
+        <button class="close-btn" onclick={() => isJoinModalOpen = false} aria-label="Close modal">✕</button>
       </div>
 
-      <form onsubmit={handleJoinChallenge}>
+      <form class="modal-form" onsubmit={handleJoinChallenge}>
         <div class="form-group">
           <label for="join-code-input" class="form-label">Invite Code</label>
           <div class="code-input-wrapper">
@@ -1138,6 +1147,97 @@
     color: var(--accent-emerald-light);
   }
 
+  /* Shared Modal & Form Styles */
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1.5rem;
+    gap: 1rem;
+  }
+
+  .modal-header-content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .modal-title {
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: var(--text-main);
+    letter-spacing: -0.02em;
+    margin: 0;
+  }
+
+  .modal-subtitle {
+    font-size: 0.88rem;
+    color: var(--text-muted);
+    margin-top: 0.35rem;
+    line-height: 1.4;
+  }
+
+  .close-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    font-size: 1.25rem;
+    line-height: 1;
+    padding: 0.35rem;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .close-btn:hover {
+    color: var(--text-main);
+    background: var(--border-subtle);
+  }
+
+  .modal-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+
+  .form-label {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--text-main);
+  }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+
+  .date-field-col {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.85rem;
+    margin-top: 1.5rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--border-subtle);
+  }
+
   /* Leaderboard Modal */
   .modal-leaderboard {
     max-width: 680px;
@@ -1420,8 +1520,7 @@
     display: flex;
     align-items: center;
     gap: 0.4rem;
-    margin-top: -0.5rem;
-    margin-bottom: 1rem;
+    margin-top: 0.45rem;
     flex-wrap: wrap;
   }
 
@@ -1437,7 +1536,7 @@
     color: var(--text-muted);
     font-size: 0.75rem;
     font-weight: 700;
-    padding: 0.2rem 0.5rem;
+    padding: 0.2rem 0.55rem;
     border-radius: var(--radius-sm);
     cursor: pointer;
     transition: all 0.15s;
@@ -1446,12 +1545,17 @@
     border-color: var(--border-hover);
     color: var(--text-main);
   }
+  .preset-btn.active {
+    background: rgba(16, 185, 129, 0.15);
+    border-color: var(--accent-emerald);
+    color: var(--accent-emerald-light);
+  }
 
   .dates-header-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 0.35rem;
+    margin-bottom: 0.4rem;
   }
 
   .duration-quick-pills {
@@ -1461,24 +1565,30 @@
 
   .pill-preset {
     background: var(--border-subtle);
-    border: none;
+    border: 1px solid transparent;
     font-size: 0.72rem;
     font-weight: 700;
     color: var(--text-dim);
-    padding: 0.15rem 0.45rem;
+    padding: 0.2rem 0.55rem;
     border-radius: var(--radius-sm);
     cursor: pointer;
     transition: all 0.15s;
   }
   .pill-preset:hover {
+    color: var(--text-main);
+    border-color: var(--border-hover);
+  }
+  .pill-preset.active {
+    background: rgba(16, 185, 129, 0.15);
+    border-color: var(--accent-emerald);
     color: var(--accent-emerald-light);
   }
 
   .input-sub-label {
     display: block;
-    font-size: 0.75rem;
-    color: var(--text-dim);
-    margin-bottom: 0.2rem;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-bottom: 0.25rem;
     font-weight: 600;
   }
 
@@ -1562,6 +1672,17 @@
   @media (max-width: 640px) {
     .style-selector-grid {
       grid-template-columns: 1fr;
+    }
+    .form-row {
+      grid-template-columns: 1fr;
+    }
+    .modal-footer {
+      flex-direction: column-reverse;
+      gap: 0.6rem;
+    }
+    .modal-footer .btn {
+      width: 100%;
+      justify-content: center;
     }
     .leaderboard-row {
       grid-template-columns: 32px 1fr;
