@@ -29,7 +29,7 @@ fi
 REGION="${REGION:-us-central1}"
 SERVICE_NAME="${SERVICE_NAME:-workout-tracker}"
 AR_REPO="${AR_REPO:-cloud-run-source-deploy}"
-KEEP_COUNT="${KEEP_COUNT:-2}"
+KEEP_COUNT="${KEEP_COUNT:-1}"
 
 echo "======================================================"
 echo "🧹 GCP Storage & Build Artifacts Manager"
