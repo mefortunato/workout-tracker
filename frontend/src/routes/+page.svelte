@@ -18,6 +18,7 @@
   let isQuickLogOpen = $state(false);
   let quickLogDefaultEx = $state('Push-ups');
   let isLogWorkoutOpen = $state(false);
+  let isLoggingIn = $state(false);
 
   let pushupPct = $derived(
     Math.min(100, Math.round(((stats?.today.pushups || 0) / ($userStore?.preferences?.daily_pushup_target || 100)) * 100))
@@ -84,12 +85,16 @@
   }
 
   async function handleDemoLogin() {
+    isLoggingIn = true;
     try {
-      await api.demoLogin();
-      addToast('Welcome Athlete!', 'Signed in with demo profile with sample data.', 'success');
+      const data = await api.demoLogin();
+      userStore.set(data.user);
+      addToast('Welcome Athlete! 🔥', 'Signed in with demo profile with sample data.', 'success');
       await refreshDashboard();
     } catch (e: any) {
       addToast('Error', e.message || 'Demo login failed', 'error');
+    } finally {
+      isLoggingIn = false;
     }
   }
 </script>
@@ -119,8 +124,13 @@
             <polyline points="12 5 19 12 12 19"></polyline>
           </svg>
         </a>
-        <button class="btn btn-secondary btn-lg" onclick={handleDemoLogin}>
-          <span>⚡ Try Instant Demo</span>
+        <button class="btn btn-secondary btn-lg" onclick={handleDemoLogin} disabled={isLoggingIn}>
+          {#if isLoggingIn}
+            <div class="spinner-small"></div>
+            <span>Entering Demo...</span>
+          {:else}
+            <span>⚡ Try Instant Demo</span>
+          {/if}
         </button>
       </div>
 
@@ -363,6 +373,15 @@
     height: 40px;
     border: 3px solid rgba(255, 255, 255, 0.1);
     border-top-color: var(--accent-emerald);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  .spinner-small {
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    border-top-color: currentColor;
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
   }
