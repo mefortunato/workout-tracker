@@ -63,12 +63,59 @@
     }
   }
 
+  let selectedExerciseObj = $derived(
+    exercises.find(e => e.name.toLowerCase() === newExercise.toLowerCase())
+  );
+  let isDurationExercise = $derived(
+    selectedExerciseObj?.type === 'duration' || newExercise.toLowerCase() === 'plank'
+  );
+
+  function isDurationChallenge(challenge: ChallengeItem): boolean {
+    if (challenge.target_unit === 'minutes') return true;
+    const ex = exercises.find(e => e.name.toLowerCase() === (challenge.exercise_name || '').toLowerCase());
+    return ex?.type === 'duration' || (challenge.exercise_name || '').toLowerCase() === 'plank';
+  }
+
+  function handleExerciseChange() {
+    const exObj = exercises.find(e => e.name.toLowerCase() === newExercise.toLowerCase());
+    const isDur = exObj?.type === 'duration' || newExercise.toLowerCase() === 'plank';
+    if (isDur) {
+      if (newType === 'total_volume') {
+        newTargetValue = 60; // 60 minutes
+        newTitle = `October ${newExercise} Endurance`;
+        newDescription = `Race to log cumulative time in ${newExercise}! First to reach target wins bragging rights.`;
+      } else {
+        newTargetValue = 5; // 5 min/day
+        newTitle = `Daily ${newExercise} Streak`;
+        newDescription = `Hold a daily ${newExercise} target every single day!`;
+      }
+    } else {
+      if (newType === 'total_volume') {
+        newTargetValue = 1000;
+        newTitle = `October Century ${newExercise}`;
+        newDescription = `Race to 1,000 total ${newExercise.toLowerCase()} this month. First to finish wins bragging rights!`;
+      } else {
+        newTargetValue = 50;
+        newTitle = `Daily ${newExercise} Streak`;
+        newDescription = `Hit 50 ${newExercise.toLowerCase()} every day to keep your streak alive!`;
+      }
+    }
+  }
+
   function setType(type: ChallengeType) {
     newType = type;
-    if (type === 'total_volume') {
-      newTargetValue = 1000;
+    if (isDurationExercise) {
+      if (type === 'total_volume') {
+        newTargetValue = 60;
+      } else {
+        newTargetValue = 5;
+      }
     } else {
-      newTargetValue = 50;
+      if (type === 'total_volume') {
+        newTargetValue = 1000;
+      } else {
+        newTargetValue = 50;
+      }
     }
   }
 
@@ -102,6 +149,7 @@
         challenge_type: newType,
         exercise_name: newExercise,
         target_value: Number(newTargetValue),
+        target_unit: isDurationExercise ? 'minutes' : 'reps',
         start_date: newStartDate,
         end_date: newEndDate
       });
@@ -312,6 +360,7 @@
       {#each challenges as challenge (challenge._id)}
         {@const userProg = challenge.user_progress}
         {@const isVolume = challenge.challenge_type === 'total_volume'}
+        {@const isDur = isDurationChallenge(challenge)}
         <div class="challenge-card glass-card animate-pop-in">
           <!-- Card Header Badges -->
           <div class="card-badges-row">
@@ -340,9 +389,9 @@
               </span>
               <span class="badge badge-cyan">
                 {#if isVolume}
-                  {challenge.target_value.toLocaleString()} Total Reps
+                  {challenge.target_value.toLocaleString()} {isDur ? 'Total Minutes' : 'Total Reps'}
                 {:else}
-                  {challenge.target_value} Reps/Day Streak
+                  {challenge.target_value} {isDur ? 'Mins/Day Streak' : 'Reps/Day Streak'}
                 {/if}
               </span>
               <span class="badge badge-subtle">
@@ -381,7 +430,7 @@
 
               <div class="progress-detail-row">
                 {#if isVolume}
-                  <span>{userProg.completed_reps.toLocaleString()} / {challenge.target_value.toLocaleString()} reps</span>
+                  <span>{userProg.completed_reps.toLocaleString()} / {challenge.target_value.toLocaleString()} {isDurationChallenge(challenge) ? 'mins' : 'reps'}</span>
                 {:else}
                   <span>{userProg.days_completed} / {userProg.target_days} days achieved ({userProg.current_streak}d streak)</span>
                 {/if}
@@ -462,12 +511,12 @@
       <!-- Challenge Specs & Invite Bar -->
       <div class="challenge-detail-banner">
         <div class="detail-stat">
-          <span class="stat-lbl">Target Goal</span>
+          <span class="stat-lbl">{isDurationChallenge(selectedChallenge) ? 'Total Target Time' : 'Target Goal'}</span>
           <span class="stat-val highlight">
             {#if selectedChallenge.challenge_type === 'total_volume'}
-              {selectedChallenge.target_value.toLocaleString()} {selectedChallenge.exercise_name || 'Total'} Reps
+              {selectedChallenge.target_value.toLocaleString()} {selectedChallenge.exercise_name || 'Total'} {isDurationChallenge(selectedChallenge) ? 'Minutes' : 'Reps'}
             {:else}
-              {selectedChallenge.target_value} {selectedChallenge.exercise_name || 'Reps'} / Day
+              {selectedChallenge.target_value} {selectedChallenge.exercise_name || (isDurationChallenge(selectedChallenge) ? 'Mins' : 'Reps')} / Day
             {/if}
           </span>
         </div>
@@ -559,7 +608,7 @@
 
                 <div class="reps-metric-label">
                   {#if selectedChallenge.challenge_type === 'total_volume'}
-                    <strong>{participant.completed_reps.toLocaleString()}</strong> / {selectedChallenge.target_value.toLocaleString()} reps
+                    <strong>{participant.completed_reps.toLocaleString()}</strong> / {selectedChallenge.target_value.toLocaleString()} {isDurationChallenge(selectedChallenge) ? 'mins' : 'reps'}
                   {:else}
                     <strong>{participant.days_completed}</strong> / {participant.target_days} days ({participant.current_streak}d streak)
                   {/if}
@@ -648,7 +697,13 @@
               <span class="style-icon">⚡</span>
               <div class="style-text">
                 <span class="style-title">Total Volume Goal</span>
-                <span class="style-desc">Race to complete cumulative reps (e.g. 1,000 Push-ups total)</span>
+                <span class="style-desc">
+                  {#if isDurationExercise}
+                    Race to complete cumulative time (e.g. 60 Minutes total)
+                  {:else}
+                    Race to complete cumulative reps (e.g. 1,000 Push-ups total)
+                  {/if}
+                </span>
               </div>
             </button>
 
@@ -661,7 +716,13 @@
               <span class="style-icon">🔥</span>
               <div class="style-text">
                 <span class="style-title">Daily Consistency Streak</span>
-                <span class="style-desc">Hit a target every day (e.g. 50 pushups/day streak)</span>
+                <span class="style-desc">
+                  {#if isDurationExercise}
+                    Hit a target every day (e.g. 5 minutes/day streak)
+                  {:else}
+                    Hit a target every day (e.g. 50 pushups/day streak)
+                  {/if}
+                </span>
               </div>
             </button>
           </div>
@@ -671,43 +732,63 @@
         <div class="form-row">
           <div class="form-group">
             <label for="ch-ex" class="form-label">Exercise Target</label>
-            <select id="ch-ex" class="input-field" bind:value={newExercise}>
+            <select id="ch-ex" class="input-field" bind:value={newExercise} onchange={handleExerciseChange}>
               <option value="Push-ups">Push-ups</option>
               <option value="Sit-ups">Sit-ups</option>
               <option value="Pull-ups">Pull-ups</option>
               <option value="Squats">Squats</option>
               <option value="Dips">Dips</option>
+              <option value="Plank">Plank (Duration)</option>
               <option value="All">All Exercises (Total Volume)</option>
-              {#each exercises.filter(e => !['Push-ups', 'Sit-ups', 'Pull-ups', 'Squats', 'Dips'].includes(e.name)) as ex}
-                <option value={ex.name}>{ex.name}</option>
+              {#each exercises.filter(e => !['Push-ups', 'Sit-ups', 'Pull-ups', 'Squats', 'Dips', 'Plank'].includes(e.name)) as ex}
+                <option value={ex.name}>{ex.name}{ex.type === 'duration' ? ' (Duration)' : ''}</option>
               {/each}
             </select>
           </div>
 
           <div class="form-group">
             <label for="ch-target" class="form-label">
-              {newType === 'total_volume' ? 'Total Target Reps' : 'Daily Target Reps/Day'}
+              {#if isDurationExercise}
+                {newType === 'total_volume' ? 'Total Target Time (Minutes)' : 'Daily Target Time (Minutes/Day)'}
+              {:else}
+                {newType === 'total_volume' ? 'Total Target Reps' : 'Daily Target Reps/Day'}
+              {/if}
             </label>
             <input
               id="ch-target"
               type="number"
               class="input-field"
               bind:value={newTargetValue}
+              placeholder={isDurationExercise ? 'Minutes (e.g. 60)' : 'Reps (e.g. 1000)'}
               min="1"
               required
             />
             <!-- Quick Target Presets directly inside the target form-group -->
             <div class="target-presets-row">
               <span class="preset-label">Presets:</span>
-              {#if newType === 'total_volume'}
-                <button type="button" class="preset-btn" class:active={newTargetValue === 250} onclick={() => newTargetValue = 250}>250</button>
-                <button type="button" class="preset-btn" class:active={newTargetValue === 500} onclick={() => newTargetValue = 500}>500</button>
-                <button type="button" class="preset-btn" class:active={newTargetValue === 1000} onclick={() => newTargetValue = 1000}>1,000</button>
-                <button type="button" class="preset-btn" class:active={newTargetValue === 2500} onclick={() => newTargetValue = 2500}>2,500</button>
+              {#if isDurationExercise}
+                {#if newType === 'total_volume'}
+                  <button type="button" class="preset-btn" class:active={newTargetValue === 15} onclick={() => newTargetValue = 15}>15 min</button>
+                  <button type="button" class="preset-btn" class:active={newTargetValue === 30} onclick={() => newTargetValue = 30}>30 min</button>
+                  <button type="button" class="preset-btn" class:active={newTargetValue === 60} onclick={() => newTargetValue = 60}>60 min</button>
+                  <button type="button" class="preset-btn" class:active={newTargetValue === 120} onclick={() => newTargetValue = 120}>120 min</button>
+                {:else}
+                  <button type="button" class="preset-btn" class:active={newTargetValue === 2} onclick={() => newTargetValue = 2}>2 min/day</button>
+                  <button type="button" class="preset-btn" class:active={newTargetValue === 5} onclick={() => newTargetValue = 5}>5 min/day</button>
+                  <button type="button" class="preset-btn" class:active={newTargetValue === 10} onclick={() => newTargetValue = 10}>10 min/day</button>
+                  <button type="button" class="preset-btn" class:active={newTargetValue === 15} onclick={() => newTargetValue = 15}>15 min/day</button>
+                {/if}
               {:else}
-                <button type="button" class="preset-btn" class:active={newTargetValue === 25} onclick={() => newTargetValue = 25}>25/day</button>
-                <button type="button" class="preset-btn" class:active={newTargetValue === 50} onclick={() => newTargetValue = 50}>50/day</button>
-                <button type="button" class="preset-btn" class:active={newTargetValue === 100} onclick={() => newTargetValue = 100}>100/day</button>
+                {#if newType === 'total_volume'}
+                  <button type="button" class="preset-btn" class:active={newTargetValue === 250} onclick={() => newTargetValue = 250}>250</button>
+                  <button type="button" class="preset-btn" class:active={newTargetValue === 500} onclick={() => newTargetValue = 500}>500</button>
+                  <button type="button" class="preset-btn" class:active={newTargetValue === 1000} onclick={() => newTargetValue = 1000}>1,000</button>
+                  <button type="button" class="preset-btn" class:active={newTargetValue === 2500} onclick={() => newTargetValue = 2500}>2,500</button>
+                {:else}
+                  <button type="button" class="preset-btn" class:active={newTargetValue === 25} onclick={() => newTargetValue = 25}>25/day</button>
+                  <button type="button" class="preset-btn" class:active={newTargetValue === 50} onclick={() => newTargetValue = 50}>50/day</button>
+                  <button type="button" class="preset-btn" class:active={newTargetValue === 100} onclick={() => newTargetValue = 100}>100/day</button>
+                {/if}
               {/if}
             </div>
           </div>

@@ -1,7 +1,7 @@
 import logging
 import secrets
 from datetime import datetime, date, time, timedelta
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Union
 from fastapi import APIRouter, Depends, HTTPException, status
 from bson import ObjectId
 
@@ -35,6 +35,13 @@ async def calculate_challenge_progress(
     c_type = challenge_doc.get("challenge_type", "total_volume")
     target_value = challenge_doc.get("target_value", 100)
     target_ex = challenge_doc.get("exercise_name")
+    target_unit = challenge_doc.get("target_unit") or "reps"
+
+    # Automatically detect if exercise has type "duration"
+    if target_unit != "minutes" and target_ex:
+        ex_check = await db.exercises.find_one({"name": {"$regex": f"^{target_ex.strip()}$", "$options": "i"}})
+        if (ex_check and ex_check.get("type") == "duration") or target_ex.lower() == "plank":
+            target_unit = "minutes"
     start_str = challenge_doc.get("start_date")
     end_str = challenge_doc.get("end_date")
 
@@ -78,7 +85,7 @@ async def calculate_challenge_progress(
             "date": {"$gte": start_dt, "$lte": end_dt}
         })
 
-        reps_by_day: Dict[date, int] = {}
+        val_by_day: Dict[date, float] = {}
         last_active: Optional[datetime] = None
 
         async for w in cursor:
@@ -89,25 +96,51 @@ async def calculate_challenge_progress(
                 last_active = w_date
 
             day_key = w_date.date()
-            day_reps = 0
+            day_val = 0.0
 
             for ex in w.get("exercises", []):
                 ex_name = ex.get("exercise_name", "")
                 if not target_ex or target_ex.lower() == "all" or target_ex.lower() in ex_name.lower():
-                    reps = ex.get("total_reps", 0)
-                    if reps == 0:
-                        reps = sum(
-                            s.get("reps", 0)
+                    if target_unit == "minutes":
+                        # Exercise with type duration measured in minutes
+                        seconds = sum(
+                            s.get("duration_seconds", 0)
                             for s in ex.get("sets", [])
                             if s.get("completed", True)
                         )
-                    day_reps += reps
+                        if seconds == 0:
+                            reps_val = sum(
+                                s.get("reps", 0)
+                                for s in ex.get("sets", [])
+                                if s.get("completed", True)
+                            )
+                            if reps_val >= 15:
+                                seconds = reps_val
+                            elif reps_val > 0:
+                                seconds = reps_val * 60
+                        mins = seconds / 60.0
+                        day_val += mins
+                    else:
+                        reps = ex.get("total_reps", 0)
+                        if reps == 0:
+                            reps = sum(
+                                s.get("reps", 0)
+                                for s in ex.get("sets", [])
+                                if s.get("completed", True)
+                            )
+                        day_val += reps
 
-            reps_by_day[day_key] = reps_by_day.get(day_key, 0) + day_reps
+            val_by_day[day_key] = val_by_day.get(day_key, 0.0) + day_val
+
+        raw_completed = sum(val_by_day.values())
+        if target_unit == "minutes":
+            completed_val: Union[int, float] = int(raw_completed) if raw_completed.is_integer() else round(raw_completed, 1)
+        else:
+            completed_val = int(raw_completed)
 
         # Compute metrics based on challenge type
         if c_type == "daily_streak":
-            achieved_days = {d for d, reps in reps_by_day.items() if reps >= target_value}
+            achieved_days = {d for d, val in val_by_day.items() if val >= target_value}
             days_completed = len(achieved_days)
             progress_pct = min(100.0, round((days_completed / total_challenge_days) * 100, 1))
             is_completed = days_completed >= total_challenge_days
@@ -128,7 +161,7 @@ async def calculate_challenge_progress(
                 name=p_name,
                 avatar=p_avatar,
                 joined_at=p_joined_at,
-                completed_reps=sum(reps_by_day.values()),
+                completed_reps=completed_val,
                 target_reps=target_value * total_challenge_days,
                 days_completed=days_completed,
                 target_days=total_challenge_days,
@@ -137,27 +170,28 @@ async def calculate_challenge_progress(
                 is_completed=is_completed,
                 rank=1,
                 last_active=last_active,
+                unit=target_unit,
             )
         else:
             # Default: total_volume
-            completed_reps = sum(reps_by_day.values())
-            progress_pct = min(100.0, round((completed_reps / max(target_value, 1)) * 100, 1))
-            is_completed = completed_reps >= target_value
+            progress_pct = min(100.0, round((completed_val / max(target_value, 1)) * 100, 1))
+            is_completed = completed_val >= target_value
 
             entry = ChallengeParticipantProgress(
                 user_id=p_user_id,
                 name=p_name,
                 avatar=p_avatar,
                 joined_at=p_joined_at,
-                completed_reps=completed_reps,
+                completed_reps=completed_val,
                 target_reps=target_value,
-                days_completed=len(reps_by_day),
+                days_completed=len(val_by_day),
                 target_days=total_challenge_days,
                 current_streak=0,
                 progress_percentage=progress_pct,
                 is_completed=is_completed,
                 rank=1,
                 last_active=last_active,
+                unit=target_unit,
             )
 
         leaderboard_list.append(entry)
@@ -189,6 +223,7 @@ async def calculate_challenge_progress(
         challenge_type=c_type,
         exercise_name=target_ex,
         target_value=target_value,
+        target_unit=target_unit,
         start_date=start_str,
         end_date=end_str,
         creator_id=str(challenge_doc.get("creator_id")),
@@ -243,12 +278,19 @@ async def create_challenge(
             break
         invite_code = generate_invite_code()
 
+    exercise_name = data.exercise_name or "Push-ups"
+    target_unit = data.target_unit or "reps"
+    ex_doc = await db.exercises.find_one({"name": {"$regex": f"^{exercise_name.strip()}$", "$options": "i"}})
+    if (ex_doc and ex_doc.get("type") == "duration") or exercise_name.lower() == "plank":
+        target_unit = "minutes"
+
     challenge_doc = {
         "title": data.title.strip(),
         "description": (data.description or "").strip(),
         "challenge_type": data.challenge_type,
-        "exercise_name": data.exercise_name or "Push-ups",
+        "exercise_name": exercise_name,
         "target_value": data.target_value,
+        "target_unit": target_unit,
         "start_date": data.start_date,
         "end_date": data.end_date,
         "creator_id": user_id,

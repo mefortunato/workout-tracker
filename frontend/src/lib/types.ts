@@ -139,6 +139,7 @@ export interface ChallengeParticipantProgress {
   is_completed: boolean;
   rank: number;
   last_active?: string | null;
+  unit?: string;
 }
 
 export interface ChallengeItem {
@@ -148,6 +149,7 @@ export interface ChallengeItem {
   challenge_type: ChallengeType;
   exercise_name?: string;
   target_value: number;
+  target_unit?: 'reps' | 'minutes' | string;
   start_date: string;
   end_date: string;
   creator_id: string;
@@ -168,6 +170,7 @@ export interface ChallengeCreateInput {
   challenge_type: ChallengeType;
   exercise_name?: string;
   target_value: number;
+  target_unit?: 'reps' | 'minutes' | string;
   start_date: string;
   end_date: string;
 }

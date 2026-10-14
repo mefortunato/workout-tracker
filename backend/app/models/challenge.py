@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional, List, Literal
+from typing import Optional, List, Literal, Union
 from pydantic import BaseModel, Field
 from app.utils.dates import utc_now
 
@@ -19,8 +19,8 @@ class ChallengeParticipantProgress(BaseModel):
     name: str
     avatar: Optional[str] = None
     joined_at: datetime
-    completed_reps: int = 0
-    target_reps: int = 0
+    completed_reps: Union[int, float] = 0
+    target_reps: Union[int, float] = 0
     days_completed: int = 0
     target_days: int = 0
     current_streak: int = 0
@@ -28,6 +28,7 @@ class ChallengeParticipantProgress(BaseModel):
     is_completed: bool = False
     rank: int = 1
     last_active: Optional[datetime] = None
+    unit: str = "reps"  # "reps", "minutes"
 
 
 class ChallengeBase(BaseModel):
@@ -35,13 +36,14 @@ class ChallengeBase(BaseModel):
     description: Optional[str] = ""
     challenge_type: ChallengeType = "total_volume"
     exercise_name: Optional[str] = "Push-ups"
-    target_value: int  # Total reps (for total_volume) or daily reps (for daily_streak)
+    target_value: int  # Total reps/minutes (for total_volume) or daily reps/minutes (for daily_streak)
+    target_unit: str = "reps"  # "reps", "minutes"
     start_date: str    # YYYY-MM-DD
     end_date: str      # YYYY-MM-DD
 
 
 class ChallengeCreate(ChallengeBase):
-    pass
+    target_unit: Optional[str] = "reps"
 
 
 class ChallengeJoinRequest(BaseModel):

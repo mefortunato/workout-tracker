@@ -287,3 +287,61 @@ async def test_challenges_flow():
         assert after_leave.json()["participants_count"] == 1
 
 
+@pytest.mark.asyncio
+async def test_duration_challenge_flow():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        # 1. Login user
+        login = await client.post("/api/auth/demo-login")
+        token = login.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
+
+        # 2. Create challenge for Plank (duration exercise)
+        create_resp = await client.post("/api/challenges", headers=headers, json={
+            "title": "October Plank Endurance",
+            "description": "Accumulate 30 minutes of plank this month!",
+            "challenge_type": "total_volume",
+            "exercise_name": "Plank",
+            "target_value": 30,  # 30 minutes
+            "start_date": "2026-10-01",
+            "end_date": "2026-10-31"
+        })
+        assert create_resp.status_code == 201
+        c_data = create_resp.json()
+        assert c_data["target_unit"] == "minutes"
+        assert c_data["target_value"] == 30
+        c_id = c_data["_id"]
+
+        # 3. Log a workout with Plank (2 sets of 60 seconds = 120s = 2 minutes)
+        workout_resp = await client.post("/api/workouts", headers=headers, json={
+            "title": "Core Hold Session",
+            "duration_minutes": 10,
+            "exercises": [
+                {
+                    "exercise_name": "Plank",
+                    "category": "Core",
+                    "type": "duration",
+                    "sets": [
+                        {"set_number": 1, "reps": 0, "weight": 0, "duration_seconds": 60, "completed": True},
+                        {"set_number": 2, "reps": 0, "weight": 0, "duration_seconds": 60, "completed": True}
+                    ],
+                    "total_reps": 0,
+                    "total_volume": 0
+                }
+            ]
+        })
+        assert workout_resp.status_code == 201
+
+        # 4. Check challenge progress
+        detail_resp = await client.get(f"/api/challenges/{c_id}", headers=headers)
+        assert detail_resp.status_code == 200
+        detail = detail_resp.json()
+        assert detail["target_unit"] == "minutes"
+        user_prog = detail["user_progress"]
+        assert user_prog is not None
+        assert user_prog["unit"] == "minutes"
+        assert user_prog["completed_reps"] >= 2  # 2 minutes completed
+        assert user_prog["target_reps"] == 30
+        assert user_prog["progress_percentage"] >= 6.6
+
+
+
