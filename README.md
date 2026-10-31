@@ -250,6 +250,39 @@ This will automatically:
 
 ---
 
+### Method 1b: Continuous Deployment with GitHub Actions
+
+`.github/workflows/deploy-cloud-run.yml` runs the backend tests and then deploys to Cloud Run on every push to `main` (or manually via **Actions → Deploy to Cloud Run → Run workflow**). It builds the Docker image, pushes it to Artifact Registry tagged with the commit SHA, deploys it, runs a `/api/health` smoke test, and prunes old images.
+
+**One-time GCP setup** — run the setup script (safe to re-run):
+
+```bash
+gcloud auth login
+gcloud config set project YOUR_GCP_PROJECT_ID
+./scripts/setup-gcp-github-actions.sh
+```
+
+It reads `MONGODB_URI`, `JWT_SECRET`, `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` (plus optional `CUSTOM_DOMAIN`, `FRONTEND_URL`, `REGION`, …) from your environment or `.env`, then:
+- enables the required APIs and creates the Artifact Registry repo
+- stores `MONGODB_URI`, `JWT_SECRET` and `GOOGLE_CLIENT_SECRET` in **Secret Manager** (readable only by the Cloud Run runtime service account)
+- creates a `github-deployer` service account with the roles the workflow needs
+- sets up **Workload Identity Federation** restricted to this GitHub repository (no JSON keys)
+- prints the `gh secret set` / `gh variable set` commands to finish the GitHub side
+
+**GitHub configuration** — the script prints these commands for you; for reference (Settings → Secrets and variables → Actions; the deploy job uses the `production` environment, so you can add protection rules there):
+
+| Kind | Name | Value |
+|---|---|---|
+| Secret | `GCP_WORKLOAD_IDENTITY_PROVIDER` | `projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/github/providers/github-oidc` |
+| Secret | `GCP_SERVICE_ACCOUNT` | `github-deployer@PROJECT_ID.iam.gserviceaccount.com` |
+| Variable | `GCP_PROJECT_ID` | your project ID (required) |
+| Variable | `GOOGLE_CLIENT_ID` | OAuth client ID |
+| Variable | `CUSTOM_DOMAIN` / `FRONTEND_URL` | optional; otherwise the Cloud Run URL is used |
+| Variable | `GCP_REGION`, `CLOUD_RUN_SERVICE`, `ARTIFACT_REGISTRY_REPO`, `DATABASE_NAME`, `ALLOW_DEV_LOGIN` | optional overrides (defaults: `us-central1`, `workout-tracker`, `cloud-run-source-deploy`, `workout_tracker`, `false`) |
+| Variable | `SECRET_MONGODB_URI`, `SECRET_JWT_SECRET`, `SECRET_GOOGLE_CLIENT_SECRET` | optional Secret Manager secret names if yours differ |
+
+---
+
 ### Method 2: Deploying via Google Cloud Console (Web UI)
 
 1. **Push your code to GitHub** (or Cloud Source Repositories).
