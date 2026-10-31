@@ -254,44 +254,22 @@ This will automatically:
 
 `.github/workflows/deploy-cloud-run.yml` runs the backend tests and then deploys to Cloud Run on every push to `main` (or manually via **Actions → Deploy to Cloud Run → Run workflow**). It builds the Docker image, pushes it to Artifact Registry tagged with the commit SHA, deploys it, runs a `/api/health` smoke test, and prunes old images.
 
-**One-time GCP setup** (replace `PROJECT_ID`, `PROJECT_NUMBER`, `OWNER/REPO`):
+**One-time GCP setup** — run the setup script (safe to re-run):
 
 ```bash
-gcloud services enable run.googleapis.com artifactregistry.googleapis.com secretmanager.googleapis.com iamcredentials.googleapis.com --project PROJECT_ID
-
-# Artifact Registry repo (already exists if you've used ./scripts/deploy-gcp.sh)
-gcloud artifacts repositories create cloud-run-source-deploy --repository-format=docker --location=us-central1 --project PROJECT_ID
-
-# Secrets (the workflow references these by name, version "latest")
-printf '%s' "$MONGODB_URI"          | gcloud secrets create MONGODB_URI --data-file=- --project PROJECT_ID
-printf '%s' "$JWT_SECRET"           | gcloud secrets create JWT_SECRET --data-file=- --project PROJECT_ID
-printf '%s' "$GOOGLE_CLIENT_SECRET" | gcloud secrets create GOOGLE_CLIENT_SECRET --data-file=- --project PROJECT_ID
-
-# Deployer service account
-gcloud iam service-accounts create github-deployer --project PROJECT_ID
-SA=github-deployer@PROJECT_ID.iam.gserviceaccount.com
-for role in roles/run.admin roles/artifactregistry.admin roles/iam.serviceAccountUser roles/storage.admin; do
-  gcloud projects add-iam-policy-binding PROJECT_ID --member="serviceAccount:$SA" --role="$role"
-done
-
-# Let the Cloud Run runtime service account read the secrets
-gcloud projects add-iam-policy-binding PROJECT_ID \
-  --member="serviceAccount:PROJECT_NUMBER-compute@developer.gserviceaccount.com" \
-  --role=roles/secretmanager.secretAccessor
-
-# Workload Identity Federation (keyless auth from GitHub)
-gcloud iam workload-identity-pools create github --location=global --project PROJECT_ID
-gcloud iam workload-identity-pools providers create-oidc github-oidc \
-  --location=global --workload-identity-pool=github --project PROJECT_ID \
-  --issuer-uri="https://token.actions.githubusercontent.com" \
-  --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository" \
-  --attribute-condition="assertion.repository=='OWNER/REPO'"
-gcloud iam service-accounts add-iam-policy-binding "$SA" --project PROJECT_ID \
-  --role=roles/iam.workloadIdentityUser \
-  --member="principalSet://iam.googleapis.com/projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/github/attribute.repository/OWNER/REPO"
+gcloud auth login
+gcloud config set project YOUR_GCP_PROJECT_ID
+./scripts/setup-gcp-github-actions.sh
 ```
 
-**GitHub configuration** (Settings → Secrets and variables → Actions; the deploy job uses the `production` environment, so you can add protection rules there):
+It reads `MONGODB_URI`, `JWT_SECRET`, `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` (plus optional `CUSTOM_DOMAIN`, `FRONTEND_URL`, `REGION`, …) from your environment or `.env`, then:
+- enables the required APIs and creates the Artifact Registry repo
+- stores `MONGODB_URI`, `JWT_SECRET` and `GOOGLE_CLIENT_SECRET` in **Secret Manager** (readable only by the Cloud Run runtime service account)
+- creates a `github-deployer` service account with the roles the workflow needs
+- sets up **Workload Identity Federation** restricted to this GitHub repository (no JSON keys)
+- prints the `gh secret set` / `gh variable set` commands to finish the GitHub side
+
+**GitHub configuration** — the script prints these commands for you; for reference (Settings → Secrets and variables → Actions; the deploy job uses the `production` environment, so you can add protection rules there):
 
 | Kind | Name | Value |
 |---|---|---|
