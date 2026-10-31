@@ -1,0 +1,171 @@
+name: Deploy to Cloud Run
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Never run two deploys of the same service at once; let an in-flight deploy finish.
+concurrency:
+  group: deploy-cloud-run
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+  REGION: ${{ vars.GCP_REGION || 'us-central1' }}
+  SERVICE_NAME: ${{ vars.CLOUD_RUN_SERVICE || 'workout-tracker' }}
+  AR_REPO: ${{ vars.ARTIFACT_REGISTRY_REPO || 'cloud-run-source-deploy' }}
+
+jobs:
+  test:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    services:
+      mongodb:
+        image: mongo:7
+        ports:
+          - 27017:27017
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      MONGODB_URI: mongodb://127.0.0.1:27017
+      DATABASE_NAME: workout_tracker_ci
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Run pytest
+        run: uv run --frozen --extra dev pytest -q
+
+  deploy:
+    name: Build & deploy
+    needs: test
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      id-token: write # required for Workload Identity Federation
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate configuration
+        env:
+          WIF_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          DEPLOY_SA: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+        run: |
+          fail=0
+          [ -n "$PROJECT_ID" ]   || { echo "::error::Variable GCP_PROJECT_ID is not set."; fail=1; }
+          [ -n "$WIF_PROVIDER" ] || { echo "::error::Secret GCP_WORKLOAD_IDENTITY_PROVIDER is not set."; fail=1; }
+          [ -n "$DEPLOY_SA" ]    || { echo "::error::Secret GCP_SERVICE_ACCOUNT is not set."; fail=1; }
+          exit $fail
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
+
+      - name: Build and push image
+        id: image
+        run: |
+          IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO}/${SERVICE_NAME}:${GITHUB_SHA}"
+          docker build -t "$IMAGE" .
+          docker push "$IMAGE"
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve runtime environment
+        id: runtime
+        env:
+          CUSTOM_DOMAIN: ${{ vars.CUSTOM_DOMAIN }}
+          FRONTEND_URL: ${{ vars.FRONTEND_URL }}
+          DATABASE_NAME: ${{ vars.DATABASE_NAME || 'workout_tracker' }}
+          ALLOW_DEV_LOGIN: ${{ vars.ALLOW_DEV_LOGIN || 'false' }}
+          GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
+        run: |
+          URL=""
+          if [ -n "$CUSTOM_DOMAIN" ]; then
+            URL="https://${CUSTOM_DOMAIN}"
+          elif [ -n "$FRONTEND_URL" ]; then
+            URL="$FRONTEND_URL"
+            [[ "$URL" == http* ]] || URL="https://${URL}"
+          else
+            # Fall back to the existing service URL (empty on the very first deploy).
+            URL=$(gcloud run services describe "$SERVICE_NAME" --region "$REGION" \
+              --project "$PROJECT_ID" --format 'value(status.url)' 2>/dev/null || true)
+          fi
+          URL="${URL%/}"
+          echo "frontend_url=${URL}" >> "$GITHUB_OUTPUT"
+          {
+            echo "env_vars<<__EOF__"
+            echo "ENVIRONMENT=production"
+            echo "TRUST_PROXY_HEADERS=true"
+            echo "DATABASE_NAME=${DATABASE_NAME}"
+            echo "ALLOW_DEV_LOGIN=${ALLOW_DEV_LOGIN}"
+            echo "GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}"
+            [ -n "$URL" ] && echo "FRONTEND_URL=${URL}"
+            echo "__EOF__"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Deploy to Cloud Run
+        id: deploy
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ env.SERVICE_NAME }}
+          region: ${{ env.REGION }}
+          project_id: ${{ env.PROJECT_ID }}
+          image: ${{ steps.image.outputs.image }}
+          flags: >-
+            --allow-unauthenticated
+            --memory=512Mi
+            --cpu=1
+            --min-instances=0
+            --max-instances=10
+          env_vars_update_strategy: overwrite
+          env_vars: ${{ steps.runtime.outputs.env_vars }}
+          # Sensitive values come from Secret Manager, not plain env vars.
+          secrets_update_strategy: overwrite
+          secrets: |-
+            MONGODB_URI=${{ vars.SECRET_MONGODB_URI || 'MONGODB_URI' }}:latest
+            JWT_SECRET=${{ vars.SECRET_JWT_SECRET || 'JWT_SECRET' }}:latest
+            GOOGLE_CLIENT_SECRET=${{ vars.SECRET_GOOGLE_CLIENT_SECRET || 'GOOGLE_CLIENT_SECRET' }}:latest
+
+      - name: Set FRONTEND_URL on first deploy
+        if: steps.runtime.outputs.frontend_url == ''
+        run: |
+          gcloud run services update "$SERVICE_NAME" --region "$REGION" --project "$PROJECT_ID" \
+            --update-env-vars "FRONTEND_URL=${{ steps.deploy.outputs.url }}"
+
+      - name: Smoke test
+        run: |
+          URL="${{ steps.deploy.outputs.url }}"
+          for i in 1 2 3 4 5; do
+            if curl -fsS "${URL}/api/health"; then echo; exit 0; fi
+            sleep $((i * 3))
+          done
+          echo "::error::Health check failed at ${URL}/api/health"
+          exit 1
+
+      - name: Prune old images
+        continue-on-error: true
+        run: |
+          gcloud config set project "$PROJECT_ID"
+          bash scripts/cleanup-gcp-artifacts.sh --prune-now
+
+      - name: Summary
+        run: |
+          echo "### 🚀 Deployed \`${SERVICE_NAME}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- URL: ${{ steps.deploy.outputs.url }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Image: \`${{ steps.image.outputs.image }}\`" >> "$GITHUB_STEP_SUMMARY"
