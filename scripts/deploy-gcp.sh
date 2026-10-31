@@ -57,12 +57,13 @@ fi
 # Ensure required variables exist
 MONGODB_URI="${MONGODB_URI:-}"
 DATABASE_NAME="${DATABASE_NAME:-workout_tracker}"
-JWT_SECRET="${JWT_SECRET:-super-secret-workout-tracker-token-key-change-in-prod-2026}"
+JWT_SECRET="${JWT_SECRET:-}"
 GOOGLE_CLIENT_ID="${GOOGLE_CLIENT_ID:-}"
 GOOGLE_CLIENT_SECRET="${GOOGLE_CLIENT_SECRET:-}"
 REGION="${REGION:-us-central1}"
 SERVICE_NAME="${SERVICE_NAME:-workout-tracker}"
-ALLOW_DEV_LOGIN="${ALLOW_DEV_LOGIN:-true}"
+# The demo account is shared by every visitor; keep it off in production unless intended.
+ALLOW_DEV_LOGIN="${ALLOW_DEV_LOGIN:-false}"
 
 # Production Custom Domain and FRONTEND_URL resolution
 # Purely configured via environment variables and/or root .env
@@ -92,6 +93,20 @@ if [ -z "$FRONTEND_URL" ] || [[ "$FRONTEND_URL" == *"localhost"* ]] || [[ "$FRON
   fi
 fi
 
+# A weak or published JWT secret lets anyone forge a session for any user.
+case "$JWT_SECRET" in
+  ""|super-secret-workout-tracker-token-key-*)
+    echo "❌ Error: JWT_SECRET is missing or uses a publicly known default."
+    echo "Generate one and add it to .env:"
+    echo "  JWT_SECRET=\$(python3 -c 'import secrets; print(secrets.token_urlsafe(48))')"
+    exit 1
+    ;;
+esac
+if [ "${#JWT_SECRET}" -lt 32 ]; then
+  echo "❌ Error: JWT_SECRET must be at least 32 characters."
+  exit 1
+fi
+
 if [ -z "$MONGODB_URI" ]; then
   echo "❌ Error: MONGODB_URI is not set in .env."
   echo "Please set your MongoDB Atlas connection string in .env before deploying."
@@ -112,7 +127,9 @@ gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregi
 # 5. Build and deploy container directly using Google Cloud Build & Cloud Run
 echo ""
 echo "🚀 Step 2/3: Building and deploying container to Cloud Run..."
-ENV_VARS="MONGODB_URI=${MONGODB_URI},DATABASE_NAME=${DATABASE_NAME},JWT_SECRET=${JWT_SECRET},ALLOW_DEV_LOGIN=${ALLOW_DEV_LOGIN},GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID},GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}"
+# NOTE: for stronger secret handling, store JWT_SECRET, MONGODB_URI and GOOGLE_CLIENT_SECRET
+# in Secret Manager and pass them with --set-secrets instead of plain env vars.
+ENV_VARS="ENVIRONMENT=production,TRUST_PROXY_HEADERS=true,MONGODB_URI=${MONGODB_URI},DATABASE_NAME=${DATABASE_NAME},JWT_SECRET=${JWT_SECRET},ALLOW_DEV_LOGIN=${ALLOW_DEV_LOGIN},GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID},GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}"
 if [ -n "$FRONTEND_URL" ]; then
   ENV_VARS="${ENV_VARS},FRONTEND_URL=${FRONTEND_URL}"
 fi

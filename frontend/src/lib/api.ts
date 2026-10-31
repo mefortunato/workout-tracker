@@ -14,38 +14,27 @@ import type {
 
 const API_BASE = '/api';
 
-function getToken(): string | null {
+// The session lives in an HttpOnly cookie set by the backend, so it can't be read
+// (or stolen) by injected scripts. We no longer keep a copy in localStorage.
+export function setToken(_token: string | null) {
   if (typeof localStorage !== 'undefined') {
-    return localStorage.getItem('access_token');
-  }
-  return null;
-}
-
-export function setToken(token: string | null) {
-  if (typeof localStorage !== 'undefined') {
-    if (token) {
-      localStorage.setItem('access_token', token);
-    } else {
-      localStorage.removeItem('access_token');
-    }
+    // Clean up tokens persisted by older versions of the app.
+    localStorage.removeItem('access_token');
   }
 }
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const token = getToken();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
+    // Required by the backend's CSRF check for cookie-authenticated writes.
+    'X-Requested-With': 'XMLHttpRequest',
     ...(options.headers as Record<string, string> || {}),
   };
-
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
 
   const res = await fetch(`${API_BASE}${endpoint}`, {
     ...options,
     headers,
-    credentials: 'include', // sends cookies
+    credentials: 'same-origin', // sends the HttpOnly session cookie
   });
 
   if (!res.ok) {
@@ -112,6 +101,13 @@ export const api = {
   },
 
   getCurrentUser: () => request<User>('/auth/me'),
+
+  exportMyData: () => request<Record<string, unknown>>('/auth/me/export'),
+
+  deleteAccount: async () => {
+    await request<void>('/auth/me', { method: 'DELETE' });
+    setToken(null);
+  },
 
   logout: async () => {
     try {

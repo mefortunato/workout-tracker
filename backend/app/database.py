@@ -1,6 +1,6 @@
 import logging
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
-from app.config import settings
+from app.config import settings, redact_uri
 
 logger = logging.getLogger(__name__)
 
@@ -107,7 +107,7 @@ async def init_db():
         
         # Test connection
         await client.admin.command('ping')
-        logger.info(f"Connected to MongoDB at {settings.MONGODB_URI}")
+        logger.info(f"Connected to MongoDB at {redact_uri(settings.MONGODB_URI)}")
 
         # Create indexes
         await db.users.create_index("email", unique=True)
@@ -130,7 +130,7 @@ async def init_db():
                     upsert=True
                 )
     except Exception as e:
-        logger.warning(f"Could not connect to MongoDB at {settings.MONGODB_URI}: {e}. Ensure MongoDB is running.")
+        logger.warning(f"Could not connect to MongoDB at {redact_uri(settings.MONGODB_URI)}: {e}. Ensure MongoDB is running.")
 
 
 async def close_db():

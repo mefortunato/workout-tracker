@@ -41,8 +41,13 @@
       return;
     }
 
-    if (!password || password.length < 6) {
-      formError = 'Password must be at least 6 characters long.';
+    if (!password) {
+      formError = 'Please enter your password.';
+      return;
+    }
+
+    if (authMode === 'register' && password.length < 8) {
+      formError = 'Password must be at least 8 characters long.';
       return;
     }
 
@@ -212,10 +217,10 @@
                 <input
                   id="password-input"
                   type="password"
-                  placeholder={authMode === 'register' ? 'At least 6 characters' : 'Enter your password'}
+                  placeholder={authMode === 'register' ? 'At least 8 characters' : 'Enter your password'}
                   bind:value={password}
                   required
-                  minlength="6"
+                  minlength={authMode === 'register' ? 8 : 1}
                   autocomplete={authMode === 'register' ? 'new-password' : 'current-password'}
                 />
               </div>

@@ -46,6 +46,10 @@ RUN uv sync --frozen --no-dev
 ENV PATH="/app/.venv/bin:$PATH"
 ENV PORT=8000
 
+# Run as an unprivileged user so a compromise of the app process can't modify the image
+RUN useradd --system --uid 10001 --no-create-home appuser && chown -R appuser /app
+USER appuser
+
 EXPOSE 8000 8080
 
 HEALTHCHECK --interval=15s --timeout=5s --start-period=5s --retries=3 \

@@ -6,6 +6,7 @@ from bson import ObjectId
 from app.database import get_db
 from app.utils.auth_dep import get_current_user
 from app.models.exercise import ExerciseCreate, ExerciseResponse
+from app.utils.security import exact_name_regex
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +43,7 @@ async def create_exercise(
     
     # Check if duplicate name for this user
     existing = await db.exercises.find_one({
-        "name": {"$regex": f"^{payload.name.strip()}$", "$options": "i"},
+        "name": exact_name_regex(payload.name),
         "$or": [{"is_default": True}, {"user_id": current_user["_id"]}]
     })
     if existing:
@@ -52,6 +53,7 @@ async def create_exercise(
         )
 
     doc = payload.model_dump()
+    doc["name"] = payload.name.strip()
     doc["user_id"] = current_user["_id"]
     doc["is_default"] = False
 
