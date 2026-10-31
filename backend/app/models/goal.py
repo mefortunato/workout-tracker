@@ -1,15 +1,19 @@
 from datetime import datetime
-from typing import Optional
+from typing import Literal, Optional
 from pydantic import BaseModel, Field
 from app.utils.dates import utc_now
 
 
+GoalPeriod = Literal["daily", "weekly", "monthly"]
+GoalUnit = Literal["reps", "workouts", "seconds"]
+
+
 class GoalBase(BaseModel):
-    title: str  # e.g., "100 Push-ups Daily", "50 Sit-ups Daily"
-    exercise_name: Optional[str] = "Push-ups"  # specific exercise or None for all workouts
-    period: str = "daily"  # "daily", "weekly", "monthly"
-    target_value: int = 100  # e.g. 100 reps
-    unit: str = "reps"  # "reps", "workouts", "seconds"
+    title: str = Field(min_length=1, max_length=200)  # e.g., "100 Push-ups Daily"
+    exercise_name: Optional[str] = Field(default="Push-ups", max_length=100)  # None for all workouts
+    period: GoalPeriod = "daily"
+    target_value: int = Field(default=100, ge=1, le=1_000_000)  # e.g. 100 reps
+    unit: GoalUnit = "reps"
     is_active: bool = True
 
 
@@ -18,11 +22,11 @@ class GoalCreate(GoalBase):
 
 
 class GoalUpdate(BaseModel):
-    title: Optional[str] = None
-    exercise_name: Optional[str] = None
-    period: Optional[str] = None
-    target_value: Optional[int] = None
-    unit: Optional[str] = None
+    title: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    exercise_name: Optional[str] = Field(default=None, max_length=100)
+    period: Optional[GoalPeriod] = None
+    target_value: Optional[int] = Field(default=None, ge=1, le=1_000_000)
+    unit: Optional[GoalUnit] = None
     is_active: Optional[bool] = None
 
 

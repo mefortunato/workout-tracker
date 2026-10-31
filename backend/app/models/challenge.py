@@ -31,6 +31,9 @@ class ChallengeParticipantProgress(BaseModel):
     unit: str = "reps"  # "reps", "minutes"
 
 
+TargetUnit = Literal["reps", "minutes"]
+
+
 class ChallengeBase(BaseModel):
     title: str
     description: Optional[str] = ""
@@ -43,11 +46,17 @@ class ChallengeBase(BaseModel):
 
 
 class ChallengeCreate(ChallengeBase):
-    target_unit: Optional[str] = "reps"
+    title: str = Field(min_length=1, max_length=120)
+    description: Optional[str] = Field(default="", max_length=2000)
+    exercise_name: Optional[str] = Field(default="Push-ups", max_length=100)
+    target_value: int = Field(gt=0, le=10_000_000)
+    target_unit: Optional[TargetUnit] = "reps"
+    start_date: str = Field(max_length=10)
+    end_date: str = Field(max_length=10)
 
 
 class ChallengeJoinRequest(BaseModel):
-    invite_code: str
+    invite_code: str = Field(min_length=1, max_length=20)
 
 
 class ChallengeResponse(ChallengeBase):

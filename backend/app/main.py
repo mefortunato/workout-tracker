@@ -1,7 +1,7 @@
-import os
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Optional
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
@@ -27,27 +27,44 @@ async def lifespan(app: FastAPI):
     await close_db()
 
 
+# Interactive API docs are handy locally but needlessly map the attack surface in production.
+_docs_enabled = not settings.is_production
+
 app = FastAPI(
     title=settings.APP_NAME,
     description="Full stack Workout Tracker backend with MongoDB, Google OAuth, and SvelteKit static serving.",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
+    docs_url="/docs" if _docs_enabled else None,
+    redoc_url="/redoc" if _docs_enabled else None,
+    openapi_url="/openapi.json" if _docs_enabled else None,
 )
 
 # CORS configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:8000",
-        "http://127.0.0.1:8000",
-        settings.FRONTEND_URL,
-    ],
+    allow_origins=settings.allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Requested-With"],
 )
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    headers = response.headers
+    headers.setdefault("X-Content-Type-Options", "nosniff")
+    headers.setdefault("X-Frame-Options", "DENY")
+    headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+    headers.setdefault("Cross-Origin-Opener-Policy", "same-origin-allow-popups")
+    if settings.cookie_secure:
+        headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+    if request.url.path.startswith("/api/"):
+        # API responses carry personal data; keep them out of shared caches.
+        headers.setdefault("Cache-Control", "no-store")
+    return response
 
 # Include API routers
 app.include_router(auth.router)
@@ -63,13 +80,29 @@ async def health_check():
     return {
         "status": "healthy",
         "app": settings.APP_NAME,
-        "database": settings.DATABASE_NAME
     }
 
 
 # Static file serving & Single Page Application (SPA) fallback
 BASE_DIR = Path(__file__).resolve().parent
-STATIC_DIR = BASE_DIR / "static"
+STATIC_DIR = (BASE_DIR / "static").resolve()
+
+
+def _safe_static_file(relative_path: str) -> Optional[Path]:
+    """Resolves a request path inside STATIC_DIR, refusing anything that escapes it.
+
+    Without this check `GET /%2Fetc%2Fpasswd` or `GET /..%2Fconfig.py` would read
+    arbitrary files (e.g. /proc/self/environ, which holds JWT_SECRET and DB credentials).
+    """
+    if not relative_path or "\x00" in relative_path:
+        return None
+    try:
+        candidate = (STATIC_DIR / relative_path.lstrip("/")).resolve()
+    except (OSError, ValueError):
+        return None
+    if not candidate.is_relative_to(STATIC_DIR) or not candidate.is_file():
+        return None
+    return candidate
 
 # Mount _app directory directly if it exists for SvelteKit static chunks
 app_dir = STATIC_DIR / "_app"
@@ -84,15 +117,15 @@ async def serve_spa(full_path: str):
         return Response(status_code=404, content='{"detail":"Not Found"}', media_type="application/json")
 
     # Check if a specific static file was requested (e.g. favicon.png, robots.txt)
-    requested_file = STATIC_DIR / full_path
-    if full_path and requested_file.is_file():
+    requested_file = _safe_static_file(full_path)
+    if requested_file:
         return FileResponse(requested_file)
 
     # Check if a prerendered route.html exists (e.g. workouts.html, stats.html)
     clean_path = full_path.rstrip("/")
     if clean_path:
-        html_file = STATIC_DIR / f"{clean_path}.html"
-        if html_file.is_file():
+        html_file = _safe_static_file(f"{clean_path}.html")
+        if html_file:
             return FileResponse(html_file)
 
     # Otherwise serve index.html for SvelteKit client-side routing

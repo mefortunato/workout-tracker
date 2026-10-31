@@ -2,12 +2,13 @@ import logging
 import secrets
 from datetime import datetime, date, time, timedelta
 from typing import List, Dict, Any, Optional, Union
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from bson import ObjectId
 
 from app.database import get_db
 from app.utils.auth_dep import get_current_user
 from app.utils.dates import utc_now
+from app.utils.security import exact_name_regex, get_client_ip, join_limiter
 from app.models.challenge import (
     ChallengeCreate,
     ChallengeJoinRequest,
@@ -18,6 +19,14 @@ from app.models.challenge import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/challenges", tags=["Challenges"])
+
+MAX_CHALLENGE_DAYS = 366
+
+
+def is_member(challenge_doc: Dict[str, Any], user_id: str) -> bool:
+    if str(challenge_doc.get("creator_id")) == user_id:
+        return True
+    return any(str(p.get("user_id")) == user_id for p in challenge_doc.get("participants", []))
 
 
 def generate_invite_code() -> str:
@@ -39,7 +48,7 @@ async def calculate_challenge_progress(
 
     # Automatically detect if exercise has type "duration"
     if target_unit != "minutes" and target_ex:
-        ex_check = await db.exercises.find_one({"name": {"$regex": f"^{target_ex.strip()}$", "$options": "i"}})
+        ex_check = await db.exercises.find_one({"name": exact_name_regex(target_ex)})
         if (ex_check and ex_check.get("type") == "duration") or target_ex.lower() == "plank":
             target_unit = "minutes"
     start_str = challenge_doc.get("start_date")
@@ -264,6 +273,18 @@ async def create_challenge(
             detail="Dates must be in ISO format (YYYY-MM-DD)."
         )
 
+    if (e_date - s_date).days + 1 > MAX_CHALLENGE_DAYS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Challenges can last at most {MAX_CHALLENGE_DAYS} days."
+        )
+
+    if not data.title.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Title cannot be empty."
+        )
+
     if data.target_value <= 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -280,7 +301,7 @@ async def create_challenge(
 
     exercise_name = data.exercise_name or "Push-ups"
     target_unit = data.target_unit or "reps"
-    ex_doc = await db.exercises.find_one({"name": {"$regex": f"^{exercise_name.strip()}$", "$options": "i"}})
+    ex_doc = await db.exercises.find_one({"name": exact_name_regex(exercise_name)})
     if (ex_doc and ex_doc.get("type") == "duration") or exercise_name.lower() == "plank":
         target_unit = "minutes"
 
@@ -339,17 +360,21 @@ async def get_my_challenges(
 @router.post("/join", response_model=ChallengeResponse)
 async def join_challenge_by_code(
     payload: ChallengeJoinRequest,
+    request: Request,
     current_user: Dict[str, Any] = Depends(get_current_user)
 ):
     db = get_db()
     user_id = str(current_user["_id"])
+    # Invite codes are the only thing protecting private challenges, so throttle
+    # guessing per account and per client IP.
+    join_limiter.check(f"join-user:{user_id}", f"join-ip:{get_client_ip(request)}")
     code = payload.invite_code.strip().upper()
 
     challenge_doc = await db.challenges.find_one({"invite_code": code})
     if not challenge_doc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Challenge with invite code '{code}' was not found. Please verify the code."
+            detail="No challenge matches that invite code. Please verify the code."
         )
 
     # Check if already joined
@@ -368,8 +393,10 @@ async def join_challenge_by_code(
             "joined_at": utc_now(),
         }
 
+        # The user_id filter makes the add atomic, so concurrent requests can't
+        # insert the same participant twice.
         await db.challenges.update_one(
-            {"_id": challenge_doc["_id"]},
+            {"_id": challenge_doc["_id"], "participants.user_id": {"$ne": user_id}},
             {"$push": {"participants": new_participant}}
         )
         challenge_doc["participants"].append(new_participant)
@@ -389,10 +416,12 @@ async def get_challenge_detail(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid challenge ID")
 
     challenge_doc = await db.challenges.find_one({"_id": obj_id})
-    if not challenge_doc:
+    user_id = str(current_user["_id"])
+    # Private challenges are only visible to members (they join with the invite code).
+    # Return 404 rather than 403 so challenge IDs can't be probed.
+    if not challenge_doc or not is_member(challenge_doc, user_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Challenge not found")
 
-    user_id = str(current_user["_id"])
     return await calculate_challenge_progress(challenge_doc, user_id)
 
 

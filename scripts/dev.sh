@@ -26,6 +26,9 @@ export MONGODB_URI="mongodb://127.0.0.1:${LOCAL_MONGO_PORT}"
 export DATABASE_NAME="${DATABASE_NAME:-workout_tracker}"
 export FRONTEND_URL="http://localhost:5173"
 export ALLOW_DEV_LOGIN="true"
+export ENVIRONMENT="development"
+# Stable for this dev session so uvicorn --reload doesn't sign everyone out
+export JWT_SECRET="${JWT_SECRET:-$(python3 -c 'import secrets; print(secrets.token_urlsafe(48))')}"
 
 # 3. Ensure local MongoDB Docker container is running
 echo "📦 Ensuring local MongoDB container is running on port ${LOCAL_MONGO_PORT}..."

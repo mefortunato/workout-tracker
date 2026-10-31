@@ -10,11 +10,13 @@ services:
     environment:
       - MONGODB_URI=${MONGODB_URI:-mongodb://mongodb:27017}
       - DATABASE_NAME=${DATABASE_NAME:-workout_tracker}
-      - JWT_SECRET=${JWT_SECRET:-super-secret-workout-tracker-token-key-change-in-prod-2026}
+      # Leave unset locally to get an ephemeral dev secret; always set it for real deployments.
+      - JWT_SECRET=${JWT_SECRET:-}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:8080}
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
-      - ALLOW_DEV_LOGIN=true
+      - ALLOW_DEV_LOGIN=${ALLOW_DEV_LOGIN:-true}
     depends_on:
       mongodb:
         condition: service_healthy
@@ -23,8 +25,9 @@ services:
     image: mongo:7.0
     container_name: workout-tracker-mongodb
     restart: unless-stopped
+    # MongoDB has no authentication here, so only expose it on the loopback interface.
     ports:
-      - "${MONGO_PORT:-27018}:27017"
+      - "127.0.0.1:${MONGO_PORT:-27018}:27017"
     volumes:
       - workout_mongo_data:/data/db
     healthcheck:

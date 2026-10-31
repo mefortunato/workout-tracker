@@ -264,10 +264,13 @@ This will automatically:
 6. Under **Variables & Secrets**, add your environment variables from `.env`:
    - `MONGODB_URI`
    - `DATABASE_NAME`
-   - `JWT_SECRET`
+   - `ENVIRONMENT`: `production`
+   - `JWT_SECRET` (required, at least 32 random characters — the app refuses to start in production without one; prefer a Secret Manager reference)
    - `GOOGLE_CLIENT_ID`
    - `GOOGLE_CLIENT_SECRET`
-   - `ALLOW_DEV_LOGIN`: `true`
+   - `FRONTEND_URL`: your public `https://` URL (enables `Secure` cookies and HSTS)
+   - `TRUST_PROXY_HEADERS`: `true` (Cloud Run sits behind Google's proxy; used for rate limiting)
+   - `ALLOW_DEV_LOGIN`: `false` (set `true` only if you want the shared public demo account)
 7. Click **Create**. Cloud Run will build and deploy your container!
 
 ---
@@ -284,3 +287,8 @@ To ensure Google Sign-In operates smoothly, in [Google Cloud Console Credentials
    - `https://YOUR_CUSTOM_DOMAIN.com/api/auth/google/callback` (if using a custom domain)
    - `https://YOUR_SERVICE_URL.run.app/api/auth/google/callback`
 
+---
+
+## Security
+
+See [SECURITY_AUDIT.md](SECURITY_AUDIT.md) for the latest security review, the fixes applied, and recommended follow-ups.
